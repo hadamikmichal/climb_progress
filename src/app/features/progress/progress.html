@@ -1,228 +1,98 @@
-<div class="page">
+<div class="page wide">
   <header class="page-head">
     <div>
-      <div class="eyebrow">Progres</div>
-      <h1>Rzeczywiste wyniki</h1>
-      <p class="muted">Wszystkie wykresy liczone z zapisanych treningów i testów.</p>
+      <div class="eyebrow">Progres · analiza</div>
+      <h1>Rzeczywisty progres</h1>
+      <p class="muted">Każdy wykres odpowiada na jedno pytanie treningowe. Dane wyłącznie z zapisanych treningów i testów.</p>
     </div>
   </header>
 
-  <nav class="tabs" aria-label="Sekcje progresu">
-    @for (t of tabs; track t.key) {
-      <button type="button" [class.on]="tab() === t.key" (click)="tab.set(t.key)">{{ t.label }}</button>
+  <!-- ================= TESTY ================= -->
+  <section class="tests" aria-labelledby="tests-h">
+    <div class="section-head">
+      <h2 id="tests-h">Testy</h2>
+      <a class="btn ghost sm" routerLink="/assessment/demo">Tryb Demo <app-icon name="arrow-up-right" /></a>
+    </div>
+    @for (p of upcomingTests(); track p.id) {
+      <a class="test-next" [routerLink]="['/assessment/run', p.id]">
+        <span class="eyebrow">{{ p.date | datePl }} · zaplanowany</span>
+        <strong>{{ p.type === 'CONTROL' ? kindLabels.CONTROL : kindLabels[p.type === 'FINAL' ? 'FINAL' : 'BASELINE'] }}@if (p.type !== 'CONTROL') { <span class="muted"> · {{ partLabels[p.part!] }}</span> }</strong>
+        <app-icon name="arrow-right" />
+      </a>
     }
-  </nav>
-
-  <!-- ================= BASELINE TEST v1.0 ================= -->
-  @if (tab() === 'baseline') {
-    <section class="card">
-      <div class="card-title"><h3>Testy</h3><a class="btn ghost sm" routerLink="/assessment/demo">Tryb Demo</a></div>
-      @for (row of assessmentRows(); track row.a.id) {
-        <a class="list-item" [routerLink]="['/assessment', row.a.id]">
-          <span class="type-chip T">T</span>
-          <div class="grow">
-            <div><strong>{{ kindLabels[row.a.kind] }}</strong> <span class="badge plain" [class.done]="row.a.status === 'completed'">{{ testStatus[row.a.status] }}</span></div>
-            <small>{{ (row.a.strength ?? row.a.climbing)!.date | datePl }} · {{ row.cycle }}
-              @if (row.s) { · 9c: {{ row.s.nineC.isComplete ? row.s.nineC.totalPoints + '/40' : 'niekompletny' }} }
-              @if (row.c) { · drogi {{ row.c.time.completedRoutes }}/{{ row.a.climbing!.plannedAttempts }} · śr. {{ fmtSec(row.c.time.averageTimeSeconds) }} }</small>
-          </div>
-        </a>
-      } @empty {
-        <p class="empty">Brak testów. Baseline Test v1.0 rozpoczniesz z ekranu Start. Przykładowy raport: <a routerLink="/assessment/demo">Tryb Demo</a>.</p>
-      }
-    </section>
-    <section class="grid-md-2">
-      <div class="card">
-        <h3>Max Finger Strength</h3>
-        <app-chart [config]="fingerChart() ?? emptyChart" [empty]="!fingerChart()" emptyText="Brak pomiarów siły palców." [height]="200" label="Obciążenie całkowite i dodatkowe w Max Hang 5 s" />
-      </div>
-      <div class="card">
-        <h3>Weighted Pull-up</h3>
-        <app-chart [config]="pullChart() ?? emptyChart" [empty]="!pullChart()" emptyText="Brak pomiarów podciągania." [height]="200" label="Dodatkowe obciążenie w podciąganiu 1RM" />
-      </div>
-      <div class="card">
-        <h3>Core – czas utrzymania</h3>
-        <app-chart [config]="coreChart() ?? emptyChart" [empty]="!coreChart()" emptyText="Brak pomiarów core." [height]="200" label="Czas utrzymania pozycji core" />
-        <p class="faint">Czasy różnych wariantów nie są porównywalne – sprawdź wariant w podpisie.</p>
-      </div>
-      <div class="card">
-        <h3>Dead Hang</h3>
-        <app-chart [config]="deadHangChart() ?? emptyChart" [empty]="!deadHangChart()" emptyText="Brak pomiarów dead hang." [height]="200" label="Czas dead hang" />
-      </div>
-    </section>
-    <section class="card">
-      <h3>Route Timing</h3>
-      <app-chart [config]="timingChart() ?? emptyChart" [empty]="!timingChart()" emptyText="Brak testów dróg." label="Czasy przejść kolejnych prób w testach" />
-    </section>
-    <section class="grid-md-2">
-      <div class="card">
-        <h3>Forearm Pump</h3>
-        <app-chart [config]="pumpChart() ?? emptyChart" [empty]="!pumpChart()" emptyText="Brak testów dróg." [height]="200" label="Pompowanie po kolejnych próbach" />
-      </div>
-      <div class="card">
-        <h3>Recovery Curve</h3>
-        <app-chart [config]="recoveryCurve() ?? emptyChart" [empty]="!recoveryCurve()" emptyText="Brak pomiarów regeneracji." [height]="200" label="Krzywa regeneracji przedramion 0–3 min" />
-      </div>
-    </section>
-    <p class="faint">Porównanie Baseline vs Retest – otwórz raport testu kontrolnego lub retestu.</p>
-  }
-
-  <!-- ================= WSPINANIE ================= -->
-  @if (tab() === 'climb') {
-    <section class="card">
-      <h3>Najtrudniejsza ukończona droga</h3>
-      <app-chart [config]="hardestChart() ?? emptyChart" [empty]="!hardestChart()" label="Najtrudniejsza ukończona droga w czasie" />
-    </section>
-    <section class="card">
-      <h3>Drogi w tygodniach</h3>
-      <app-chart [config]="routesWeekChart() ?? emptyChart" [empty]="!routesWeekChart()" label="Liczba ukończonych i nieukończonych dróg w tygodniach" />
-    </section>
-    <section class="grid-md-2">
-      <div class="card">
-        <h3>Udział ukończonych dróg</h3>
-        <app-chart [config]="shareChart() ?? emptyChart" [empty]="!shareChart()" [height]="200" label="Udział ukończonych i nieukończonych dróg" />
-        @if (shareText()) { <p class="muted">{{ shareText() }}</p> }
-      </div>
-      <div class="card">
-        <h3>RPE i pompowanie w czasie</h3>
-        <app-chart [config]="rpePumpChart() ?? emptyChart" [empty]="!rpePumpChart()" [height]="200" label="RPE i pompowanie przedramion w kolejnych sesjach" />
-      </div>
-    </section>
-  }
-
-  <!-- ================= WYTRZYMAŁOŚĆ ================= -->
-  @if (tab() === 'endurance') {
     @if (testRows().length) {
-    <section class="card">
-      <h3>Test 3 × 6a (format sprzed v1.0)</h3>
-      <app-chart [config]="testChart() ?? emptyChart" [empty]="!testChart()" emptyText="Brak testów – wykonaj test początkowy." label="Wyniki testów 3 × 6a" />
-      @if (testRows().length) {
-        <table class="table">
-          <thead><tr><th>Test</th><th class="num">Ukończ.</th><th class="num">Pompa po 1/2/3</th><th class="num">RPE</th><th class="num">Rezerwa</th></tr></thead>
-          <tbody>
-            @for (row of testRows(); track row.t.id) {
-              <tr>
-                <td><a [routerLink]="['/tests', row.t.id]">{{ typeShort[row.t.kind] }}</a><br /><small class="faint">{{ row.t.date | datePl }} · {{ row.cycle }}</small></td>
-                <td class="num">{{ row.s.completed }}/3</td>
-                <td class="num">{{ row.s.pumpPerRoute.join(' / ') }}</td>
-                <td class="num">{{ row.s.avgRpe ?? '–' }}</td>
-                <td class="num">{{ row.s.reserve ?? '–' }}/5</td>
-              </tr>
-            }
-          </tbody>
-        </table>
-      }
-    </section>
-    <section class="card">
-      <h3>Pompowanie po każdej z trzech dróg</h3>
-      <app-chart [config]="testPumpChart() ?? emptyChart" [empty]="!testPumpChart()" emptyText="Brak testów." label="Pompowanie po drogach w kolejnych testach" />
-      <p class="faint">Niższa linia przy drodze 3 = przedramiona mniej zmęczone po trzech drogach 6a.</p>
-    </section>
-    }
-    <section class="card">
-      <h3>Regeneracja między sesjami</h3>
-      <app-chart [config]="recoveryChart() ?? emptyChart" [empty]="!recoveryChart()" emptyText="Brak ocen gotowości i treningów B." label="Gotowość i średnie pompowanie w treningach tlenowych" />
-      <p class="faint">Gotowość z codziennej oceny (samopoczucie, sen, zmęczenie) oraz średnie pompowanie w treningach tlenowych.</p>
-    </section>
-    <section class="card">
-      <h3>Ukończone obwody (trening C)</h3>
-      <app-chart [config]="circuitChart() ?? emptyChart" [empty]="!circuitChart()" emptyText="Brak treningów C." label="Liczba ukończonych obwodów" />
-      <p class="faint">Obwód liczy się jako ukończony tylko wtedy, gdy wszystkie drogi serii zostały ukończone bez odpadnięcia.</p>
-    </section>
-  }
-
-  <!-- ================= SIŁA PALCÓW ================= -->
-  @if (tab() === 'fingers') {
-    @if (!grips().length) {
-      <section class="card"><p class="empty">Brak zapisanych zwisów. Historia Beastmaker 2000 pojawi się po pierwszym treningu B (Max Hangs).</p></section>
-    } @else {
-      <section class="card">
-        <div class="card-title">
-          <h3>Obciążenie na chwycie</h3>
-          <select [ngModel]="grip()!.key" (ngModelChange)="gripKey.set($event)" aria-label="Chwyt" style="max-width: 220px">
-            @for (g of grips(); track g.key) { <option [value]="g.key">{{ g.label }}</option> }
-          </select>
-        </div>
-        <app-chart [config]="loadChart()!" label="Obciążenie zwisów w czasie na wybranym chwycie" />
-        <p class="faint">Czerwone punkty = zgłoszony ból. Wyniki z różnych krawądek i uchwytów nie są porównywane ze sobą.</p>
-      </section>
-
-      <section class="card">
-        <h3>Postęp na poszczególnych chwytach</h3>
-        <table class="table">
-          <thead><tr><th>Chwyt</th><th class="num">Sesje</th><th class="num">Start</th><th class="num">Ostatnio</th><th class="num">Najlepiej</th></tr></thead>
-          <tbody>
-            @for (g of grips(); track g.key) {
-              <tr>
-                <td>{{ g.label }}</td><td class="num">{{ g.points.length }}</td><td class="num">{{ fmtKg(g.first) }}</td>
-                <td class="num" [class.trend-better]="g.last > g.first" [class.trend-worse]="g.last < g.first">{{ fmtKg(g.last) }}</td>
-                <td class="num">{{ fmtKg(g.best) }}</td>
-              </tr>
-            }
-          </tbody>
-        </table>
-      </section>
-
-      <section class="card">
-        <h3>Serie i czas zwisów w tygodniach</h3>
-        <app-chart [config]="volumeChart()!" label="Łączna liczba serii i czas zwisów" />
-      </section>
-
-      <section class="card">
-        <h3>Historia Beastmaker 2000</h3>
-        <table class="table">
-          <thead><tr><th>Data</th><th>Chwyt</th><th class="num">Serie</th><th class="num">Obciążenie</th><th class="num">RPE</th></tr></thead>
-          <tbody>
-            @for (h of recentHangs(); track h.id) {
-              <tr>
-                <td>{{ h.date | datePl }}</td>
-                <td>{{ h.edge }}@if (h.edgeSizeMm) { ({{ h.edgeSizeMm }} mm) } · {{ h.grip === 'half_crimp' ? 'half crimp' : h.grip === 'open_hand' ? 'open hand' : h.grip }}@if (h.pain) { <b class="trend-worse"> · ból</b> }</td>
-                <td class="num">{{ h.setsDone }}/{{ h.setsPlanned }}×{{ h.hangSec }}s</td>
-                <td class="num">{{ fmtKg(h.addedKg - h.assistKg) }}</td>
-                <td class="num">{{ h.rpe ?? '–' }}</td>
-              </tr>
-            }
-          </tbody>
-        </table>
-      </section>
-    }
-  }
-
-  <!-- ================= REGULARNOŚĆ ================= -->
-  @if (tab() === 'regularity') {
-    <section class="grid-2 grid-md-3">
-      <div class="card flat stat"><span class="label">Realizacja planu</span><span class="value">{{ regularity().rate ?? '–' }}{{ regularity().rate != null ? '%' : '' }}</span><span class="label">częściowe liczone jako ½</span></div>
-      <div class="card flat stat"><span class="label">Średnio tygodniowo</span><span class="value">{{ regularity().avgPerWeek }}</span><span class="label">plan: 3</span></div>
-      <div class="card flat stat"><span class="label">Opuszczone jednostki</span><span class="value">{{ regularity().skipped }}</span><span class="label">{{ regularity().done }} pełnych · {{ regularity().partial }} częściowych</span></div>
-    </section>
-    <section class="card">
-      <h3>Jakość, nie tylko ilość</h3>
-      <p class="muted">Pełne wykonanie: {{ quality().full }} · częściowe: {{ quality().partial }} · lżejsze/deload: {{ quality().light }} · sesje z bólem: {{ quality().pain }}.</p>
-      <p class="faint">Sesje deload i lżejsze przy obniżonej gotowości są częścią planu – odpoczynek jest elementem progresu, a nie brakiem treningu.</p>
-    </section>
-    <section class="card">
-      <h3>Wykonanie planu w tygodniach</h3>
-      <app-chart [config]="regularityChart() ?? emptyChart" [empty]="!regularityChart()" label="Wykonane, częściowe i pominięte jednostki w tygodniach" />
-    </section>
-    <section class="card">
-      <h3>Treningi w miesiącu</h3>
-      <app-chart [config]="monthChart() ?? emptyChart" [empty]="!monthChart()" [height]="180" label="Liczba treningów w miesiącu" />
-    </section>
-  }
-
-  <!-- ================= RAPORTY ================= -->
-  @if (tab() === 'reports') {
-    <div class="row"><button class="btn sm ghost" type="button" (click)="regenerate()">Przelicz raporty</button></div>
-    @for (x of reports(); track x.r.id) {
-      <section class="card">
-        <div class="card-title"><h3>Tydzień {{ x.r.week }} · {{ x.cycle }}</h3><small class="faint">{{ x.r.weekStart | datePl }}</small></div>
-        @for (l of x.r.lines; track $index) { <p>{{ l }}</p> }
-        @if (x.r.nextWeek.length) {
-          <div class="note accent"><strong>Na kolejny tydzień:</strong> @for (l of x.r.nextWeek; track $index) { <p>{{ l }}</p> }</div>
+      <ol class="test-list">
+        @for (t of testRows(); track t.a.id) {
+          <li>
+            <a [routerLink]="['/assessment', t.a.id]">
+              <span class="t-date mono">{{ t.date | datePl }}</span>
+              <span class="t-name">
+                <strong>{{ kindLabels[t.a.kind] }}</strong>
+                <small class="muted">{{ t.cycle }} · {{ statusLabels[t.a.status] }}</small>
+              </span>
+              <span class="t-vals mono">
+                @if (t.nineC) { <span><small>9c</small> {{ t.nineC }}</span> }
+                @if (t.routes) { <span><small>drogi</small> {{ t.routes }}</span> }
+                @if (t.rec != null) { <span><small>3′</small> {{ t.rec }}/10</span> }
+              </span>
+              <app-icon name="chevron-right" />
+            </a>
+          </li>
         }
-      </section>
-    } @empty {
-      <section class="card"><p class="empty">Raport tygodniowy jest generowany automatycznie po zakończeniu każdego tygodnia cyklu.</p></section>
+      </ol>
+    } @else if (!upcomingTests().length) {
+      <p class="empty-line">Brak testów. Baseline Test v1.0 rozpoczniesz z ekranu <a routerLink="/">Dziś</a> – przykładowy raport w <a routerLink="/assessment/demo">Trybie Demo</a>.</p>
     }
-  }
+  </section>
+
+  <!-- ================= ZAKRES + ZAKŁADKI ================= -->
+  <div class="controls">
+    <nav class="tabs" role="tablist" aria-label="Sekcje analizy">
+      @for (t of tabs; track t.key) {
+        <button type="button" role="tab" [attr.aria-selected]="tab() === t.key" [class.on]="tab() === t.key" (click)="tab.set(t.key)">
+          <span class="mono idx">{{ t.short }}</span>{{ t.label }}
+        </button>
+      }
+    </nav>
+    <div class="range" role="radiogroup" aria-label="Zakres dat">
+      @for (r of ranges; track r[0]) {
+        <button type="button" role="radio" [attr.aria-checked]="range() === r[0]" [class.on]="range() === r[0]" (click)="range.set(r[0])">{{ r[1] }}</button>
+      }
+    </div>
+  </div>
+  <p class="range-note mono">
+    @if (bounds().from) { {{ bounds().from | datePl }} – {{ bounds().to | datePl }} · porównanie z poprzednimi {{ compareLabel() }} } @else { Cała historia · bez porównania okresów }
+    · {{ cur().length }} {{ cur().length === 1 ? 'trening' : 'treningów' }}
+  </p>
+
+  <div class="tab-body" role="tabpanel">
+    @switch (tab()) {
+      @case ('fingers') { <app-tab-fingers [cur]="cur()" [prev]="prev()" [assessments]="assessments()" [rangeLabel]="compareLabel()" /> }
+      @case ('endurance') { <app-tab-endurance [cur]="cur()" [prev]="prev()" [assessments]="assessments()" [legacyTests]="legacyTests()" [rangeLabel]="compareLabel()" /> }
+      @case ('recovery') { <app-tab-recovery [cur]="cur()" [prev]="prev()" [assessments]="assessments()" [target]="aerobicTarget()" [rangeLabel]="compareLabel()" /> }
+      @case ('climbing') { <app-tab-climbing [cur]="cur()" [prev]="prev()" [rangeLabel]="compareLabel()" /> }
+    }
+  </div>
+
+  <!-- ================= RAPORTY TYGODNIOWE ================= -->
+  <section class="section" id="reports">
+    <div class="section-head">
+      <h2>Raporty tygodniowe</h2>
+      <button class="btn ghost sm" type="button" (click)="showReports.set(!showReports())" [attr.aria-expanded]="showReports()">{{ showReports() ? 'Zwiń' : 'Pokaż (' + reports().length + ')' }}</button>
+    </div>
+    @if (showReports()) {
+      @for (x of reports(); track x.r.id) {
+        <article class="report">
+          <div class="spread"><h3>Tydzień {{ x.r.week }} <span class="muted">· {{ x.cycle }}</span></h3><small class="mono faint">{{ x.r.weekStart | datePl }}</small></div>
+          @for (l of x.r.lines; track $index) { <p>{{ l }}</p> }
+          @if (x.r.nextWeek.length) {
+            <div class="note ok"><strong>Na kolejny tydzień:</strong> @for (l of x.r.nextWeek; track $index) { <p>{{ l }}</p> }</div>
+          }
+        </article>
+      } @empty {
+        <p class="empty-line">Raport generuje się automatycznie po zakończeniu każdego tygodnia cyklu.</p>
+      }
+      @if (reports().length) { <button class="btn ghost sm" type="button" (click)="regenerate()">Przelicz raporty</button> }
+    }
+  </section>
 </div>

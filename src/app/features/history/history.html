@@ -1,0 +1,67 @@
+<div class="page">
+  <header class="page-head">
+    <div>
+      <div class="eyebrow">Historia · dziennik treningowy</div>
+      <h1>Dziennik</h1>
+      <p class="muted mono small">{{ summary() }}</p>
+    </div>
+  </header>
+
+  <div class="filters">
+    <div class="chips" role="radiogroup" aria-label="Rodzaj sesji">
+      @for (f of filters; track f.key) {
+        <button type="button" role="radio" [attr.aria-checked]="filter() === f.key" [class.on]="filter() === f.key" (click)="filter.set(f.key)">{{ f.label }}</button>
+      }
+    </div>
+    @if (store.cycles().length > 1) {
+      <select [ngModel]="cycleId()" (ngModelChange)="cycleId.set($event)" aria-label="Cykl">
+        <option value="">Wszystkie cykle</option>
+        @for (c of cycles(); track c.id) { <option [value]="c.id">{{ c.name }}</option> }
+      </select>
+    }
+  </div>
+
+  @if (selectedCycle(); as c) {
+    <section class="cycle-info">
+      <div class="spread"><h3>{{ c.name }}</h3><span class="badge" [class.done]="c.status === 'completed'">{{ c.status === 'completed' ? 'zakończony' : c.status === 'active' ? 'aktywny' : c.status === 'baseline' ? 'baseline' : 'archiwum' }}</span></div>
+      <p class="mono small muted">Start {{ c.baselineDate | datePl }}@if (c.planStart) { · tydz. 1 {{ c.planStart | datePl }} – {{ cycleEnd(c.planStart, c.weeks) | datePl }} }</p>
+      <dl class="levels">
+        <div><dt class="eyebrow">A</dt><dd>{{ level('A', c) }}</dd></div>
+        <div><dt class="eyebrow">B</dt><dd>{{ level('B', c) }}</dd></div>
+        <div><dt class="eyebrow">C</dt><dd>{{ level('C', c) }}</dd></div>
+      </dl>
+    </section>
+  }
+
+  <div class="journal">
+    @for (d of days(); track d.date) {
+      @if (d.monthHead) { <div class="month eyebrow">{{ d.monthHead }}</div> }
+      <section class="day">
+        <div class="day-date">
+          <span class="day-num mono">{{ d.dayNum }}</span>
+          <span class="day-name eyebrow">{{ d.weekday }}</span>
+        </div>
+        <div class="day-entries">
+          @for (e of d.entries; track e.id) {
+            <a class="entry" [routerLink]="e.link">
+              <div class="entry-head">
+                <span class="type-chip" [class.T]="e.code === 'T'">{{ e.code }}</span>
+                <span class="entry-title">{{ e.title }}</span>
+                @if (e.status && e.statusKind !== 'done') { <span class="badge" [class.partial]="e.statusKind === 'partial'" [class.plain]="e.statusKind === 'test'">{{ e.status }}</span> }
+              </div>
+              <p class="facts mono">@for (f of e.facts; track $index) { <span>{{ f }}</span> }</p>
+              @for (l of e.lines; track $index) { <p class="line small muted">{{ l }}</p> }
+              @if (e.notes) { <p class="notes">„{{ e.notes }}”</p> }
+              <app-icon class="go" name="chevron-right" />
+            </a>
+          }
+        </div>
+      </section>
+    } @empty {
+      <p class="empty-state">
+        @if (filter() === 'all' && !cycleId()) { Dziennik jest pusty. Pierwszy wpis pojawi się po zapisaniu treningu lub sesji testu – zacznij na ekranie <a routerLink="/">Dziś</a>. }
+        @else { Brak wpisów dla wybranego filtra. }
+      </p>
+    }
+  </div>
+</div>
