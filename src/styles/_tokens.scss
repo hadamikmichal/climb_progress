@@ -83,11 +83,18 @@ $bp-wide: 1440px;
   --chart-fill: #{$color-accent};
   --select-bg: #{$color-foreground};
   --select-ink: #{$color-background};
+  --chart-grid: rgba(24, 28, 25, 0.08);
+  --chart-faint: #c3c4bb;
+  --tooltip-bg: #{$color-foreground};
+  --tooltip-ink: #{$color-background};
+  --inverse-accent: #{$color-accent};
+  --overlay: rgba(24, 28, 25, 0.55);
   color-scheme: light;
 }
 
-/// Kontekst Active Workout Mode – grafitowe tło, biały tekst, Signal Lime dla timera i CTA
-@mixin theme-workout {
+/// Kontekst ciemny – motyw ciemny całej aplikacji oraz Active Workout Mode
+/// (grafitowe tło, jasny tekst, Signal Lime dla timera i CTA)
+@mixin theme-dark {
   --bg: #{$color-foreground};
   --surface: #{color.adjust($color-foreground, $lightness: 4%)};
   --surface-2: #{color.adjust($color-foreground, $lightness: 8%)};
@@ -112,5 +119,12 @@ $bp-wide: 1440px;
   --chart-fill: #{$color-accent};
   --select-bg: #{$color-accent};
   --select-ink: #{$color-foreground};
+  --chart-grid: rgba(241, 240, 233, 0.1);
+  --chart-faint: #{color.adjust($color-foreground, $lightness: 22%)};
+  --tooltip-bg: #{$color-background};
+  --tooltip-ink: #{$color-foreground};
+  --inverse-accent: #{$color-accent-dark};
+  --overlay: rgba(0, 0, 0, 0.65);
+  --brand-outline: #{color.adjust($color-foreground, $lightness: 24%)};
   color-scheme: dark;
 }

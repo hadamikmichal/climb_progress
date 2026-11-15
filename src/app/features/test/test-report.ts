@@ -1,4 +1,5 @@
 import { Component, computed, inject, input } from '@angular/core';
+import { resolvedTheme } from '../../shared/theme';
 import { Router, RouterLink } from '@angular/router';
 import type { ChartConfiguration } from 'chart.js';
 import { AppStore } from '../../core/data/store';
@@ -149,6 +150,7 @@ export class TestReportPage {
     const t = this.test();
     if (!t) return null;
     const list: TestResult[] = [...this.series(), t];
+    resolvedTheme();
     const palette = [css('--faint', '#6b747d'), css('--info', '#7cb4f5'), css('--warn', '#f2b84b'), css('--accent', '#d6f54a')];
     return {
       type: 'line',
