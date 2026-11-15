@@ -1,0 +1,116 @@
+@use 'sass:color';
+
+// ClimbProgress – Design Tokens („Climbing Performance Journal”)
+// Jedyne źródło prawdy dla kolorów, typografii, odstępów i promieni.
+// SCSS-owe zmienne służą do obliczeń w czasie kompilacji; komponenty używają custom properties (--*),
+// dzięki czemu Active Workout Mode może przełączyć cały kontekst kolorystyczny jedną klasą.
+
+// ---------- Paleta ----------
+$color-background: #f1f0e9; // Chalk – tło aplikacji
+$color-surface: #fbfaf6; // Limestone – powierzchnie robocze
+$color-foreground: #181c19; // Graphite – tekst i kontrast
+$color-muted: #777c74; // Stone Grey – informacje drugorzędne
+$color-border: #d5d5cc; // Stone Grey – separatory
+$color-accent: #d7ff3f; // Signal Lime – główne działania
+$color-accent-dark: #263019; // ciemna oliwka – tekst akcentowany na jasnym tle
+$color-warning: #d96c45; // Burnt Orange – ostrzeżenia, zmęczenie, ryzyko
+
+// pochodne
+$color-surface-sunk: #e8e7df; // wgłębienia (pola wyboru, tory wykresów)
+$color-faint: #9a9e95;
+$color-ok: #4a6a1c;
+$color-risk: #b4472a;
+
+// ---------- Typografia ----------
+$font-heading: 'Archivo', 'Helvetica Neue', Arial, sans-serif;
+$font-body: 'DM Sans', system-ui, -apple-system, 'Segoe UI', sans-serif;
+$font-mono: 'IBM Plex Mono', ui-monospace, 'SFMono-Regular', Menlo, monospace;
+
+// skala (mobile → desktop przez clamp)
+$type-display: clamp(2.75rem, 7vw + 1rem, 4.5rem);
+$type-h1: clamp(1.75rem, 3vw + 1rem, 2.5rem);
+$type-h2: 1.25rem;
+$type-h3: 1rem;
+$type-body: 1rem;
+$type-small: 0.875rem;
+$type-caption: 0.75rem;
+
+// ---------- Odstępy (4 · 8 · 12 · 16 · 24 · 32 · 48 · 64 · 80) ----------
+$space: (1: 4px, 2: 8px, 3: 12px, 4: 16px, 5: 24px, 6: 32px, 7: 48px, 8: 64px, 9: 80px);
+
+// ---------- Promienie ----------
+$radius-field: 6px;
+$radius-button: 8px;
+$radius-card: 10px;
+$radius-container: 14px;
+
+// ---------- Ruch ----------
+$ease: cubic-bezier(0.2, 0, 0, 1);
+$dur-fast: 120ms;
+$dur: 200ms;
+
+// ---------- Breakpointy ----------
+$bp-tablet: 768px;
+$bp-desktop: 1024px;
+$bp-wide: 1440px;
+
+@mixin tablet { @media (min-width: $bp-tablet) { @content; } }
+@mixin desktop { @media (min-width: $bp-desktop) { @content; } }
+
+/// Kontekst jasny (domyślny – plan, analiza, historia)
+@mixin theme-light {
+  --bg: #{$color-background};
+  --surface: #{$color-surface};
+  --surface-2: #{$color-surface-sunk};
+  --surface-3: #{color.adjust($color-surface-sunk, $lightness: -4%)};
+  --border: #{$color-border};
+  --border-strong: #{$color-foreground};
+  --text: #{$color-foreground};
+  --muted: #{$color-muted};
+  --faint: #{$color-faint};
+  --accent: #{$color-accent};
+  --accent-ink: #{$color-foreground};
+  --accent-strong: #{$color-accent-dark};
+  --accent-soft: #{color.change($color-accent, $alpha: 0.35)};
+  --ok: #{$color-ok};
+  --warn: #{$color-warning};
+  --bad: #{$color-risk};
+  --info: #{$color-muted};
+  --chart-1: #{$color-foreground};
+  --chart-2: #{$color-muted};
+  --chart-3: #{$color-warning};
+  --chart-4: #{$color-accent-dark};
+  --chart-fill: #{$color-accent};
+  --select-bg: #{$color-foreground};
+  --select-ink: #{$color-background};
+  color-scheme: light;
+}
+
+/// Kontekst Active Workout Mode – grafitowe tło, biały tekst, Signal Lime dla timera i CTA
+@mixin theme-workout {
+  --bg: #{$color-foreground};
+  --surface: #{color.adjust($color-foreground, $lightness: 4%)};
+  --surface-2: #{color.adjust($color-foreground, $lightness: 8%)};
+  --surface-3: #{color.adjust($color-foreground, $lightness: 13%)};
+  --border: #{color.adjust($color-foreground, $lightness: 16%)};
+  --border-strong: #{$color-background};
+  --text: #{$color-background};
+  --muted: #{color.adjust($color-muted, $lightness: 12%)};
+  --faint: #{$color-muted};
+  --accent: #{$color-accent};
+  --accent-ink: #{$color-foreground};
+  --accent-strong: #{$color-accent};
+  --accent-soft: #{color.change($color-accent, $alpha: 0.14)};
+  --ok: #{$color-accent};
+  --warn: #{color.adjust($color-warning, $lightness: 6%)};
+  --bad: #{color.adjust($color-warning, $lightness: 6%)};
+  --info: #{color.adjust($color-muted, $lightness: 12%)};
+  --chart-1: #{$color-background};
+  --chart-2: #{color.adjust($color-muted, $lightness: 8%)};
+  --chart-3: #{$color-warning};
+  --chart-4: #{$color-accent};
+  --chart-fill: #{$color-accent};
+  --select-bg: #{$color-accent};
+  --select-ink: #{$color-foreground};
+  color-scheme: dark;
+}

@@ -9,10 +9,11 @@ import { Component, input, model } from '@angular/core';
     </div>
   `,
   styles: `
-    .yn { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
-    button { min-height: 46px; border-radius: 10px; border: 1px solid var(--border); background: var(--surface-2); color: var(--text); font: inherit; font-weight: 700; cursor: pointer; }
-    button.on { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
-    button.on.warn { background: var(--bad); border-color: var(--bad); color: #fff; }
+    .yn { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; }
+    button { min-height: 48px; border-radius: 6px; border: 1px solid var(--border); background: var(--surface); color: var(--text);
+      font: 600 0.95rem var(--font-heading); cursor: pointer; transition: background 120ms var(--ease); }
+    button.on { background: var(--select-bg); color: var(--select-ink); border-color: var(--select-bg); }
+    button.on.warn { background: var(--warn); border-color: var(--warn); color: #181c19; }
   `,
 })
 export class YesNo {

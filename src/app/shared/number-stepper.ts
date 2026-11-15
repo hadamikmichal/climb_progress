@@ -15,8 +15,9 @@ import { FormsModule } from '@angular/forms';
   `,
   styles: `
     .stp { display: grid; grid-template-columns: 76px 1fr 76px; gap: 6px; align-items: stretch; }
-    input { text-align: center; font-size: 1.5rem; font-weight: 800; min-height: 56px; }
-    .unit { text-align: center; font-size: 0.78rem; color: var(--faint); margin-top: 2px; }
+    input { text-align: center; font: 500 1.5rem var(--font-mono); min-height: 56px; letter-spacing: -0.03em; }
+    .stp .btn { font-family: var(--font-mono); font-weight: 500; padding: 0; }
+    .unit { text-align: center; font: 0.72rem var(--font-mono); color: var(--muted); margin-top: 4px; letter-spacing: 0.02em; }
   `,
 })
 export class NumberStepper {

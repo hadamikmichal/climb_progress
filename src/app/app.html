@@ -1,18 +1,30 @@
 @if (store.error(); as err) {
   <div class="page"><div class="card danger"><h2>Błąd danych</h2><p>{{ err }}</p></div></div>
 } @else if (!store.ready()) {
-  <div class="boot">ClimbProgress…</div>
+  <div class="boot"><app-brand-mark [size]="40" /><span class="eyebrow">ClimbProgress</span></div>
 } @else {
-  <div class="shell" [class.focus]="focusMode()">
+  <div class="shell" [class.focus]="focusMode()" [class.mode-active]="focusMode()">
     @if (!focusMode()) {
+      <header class="topbar">
+        <a routerLink="/" class="wordmark"><app-brand-mark [size]="24" /><span>CLIMBPROGRESS</span></a>
+        @if (weekLabel(); as w) { <span class="eyebrow kicker">{{ w }}</span> }
+      </header>
       <nav class="nav" aria-label="Główna nawigacja">
-        <div class="brand"><span class="logo">▲</span><span>ClimbProgress</span></div>
+        <div class="side-brand">
+          <a routerLink="/" class="wordmark"><app-brand-mark [size]="28" /><span>CLIMBPROGRESS</span></a>
+          <p class="tagline">Train with intent.<br />Climb with reserve.</p>
+        </div>
         @for (item of nav; track item.path) {
-          <a [routerLink]="item.path" routerLinkActive="active" [routerLinkActiveOptions]="{ exact: !!item.exact }" class="nav-link">
-            <svg viewBox="0 0 24 24" aria-hidden="true"><path [attr.d]="item.icon" /></svg>
+          <a [routerLink]="item.path" routerLinkActive="active" [routerLinkActiveOptions]="{ exact: !!item.exact }" class="nav-link" [attr.aria-label]="item.label">
+            <app-icon [name]="item.icon" />
             <span>{{ item.label }}</span>
           </a>
         }
+        <div class="side-foot">
+          @if (weekLabel(); as w) { <span class="eyebrow">{{ w }}</span> }
+          <span class="eyebrow">{{ store.stage() }}</span>
+          <span class="eyebrow faint">Dane lokalnie · offline</span>
+        </div>
       </nav>
     }
     <main class="main"><router-outlet /></main>
