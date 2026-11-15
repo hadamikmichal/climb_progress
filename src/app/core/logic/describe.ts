@@ -38,3 +38,18 @@ export function prescriptionLines(type: WorkoutType, p: TrainingParams, part?: A
       return ['3 drogi 6a, przerwy 3 min', 'Opcjonalnie: crux i 1 zwis kontrolny', 'Potem lżejszy trening B'];
   }
 }
+
+/** Krótka nazwa jednostki do list tygodnia (wersaliki nadaje CSS) */
+export const SHORT_NAMES: Record<WorkoutType, string> = {
+  A: 'Trudne drogi',
+  B: 'Max Hangs + tlenowa',
+  C: 'Wytrzymałość siłowa',
+  BASELINE: 'Baseline Test',
+  CONTROL: 'Test pośredni 3 × 6a',
+  FINAL: 'Retest',
+};
+
+export function plannedShortName(p: { type: WorkoutType; part?: AssessmentPart }): string {
+  if (p.part && p.type !== 'CONTROL') return `${SHORT_NAMES[p.type]} · ${p.part === 'strength' ? 'dzień 1 siła' : 'dzień 2 drogi'}`;
+  return SHORT_NAMES[p.type];
+}
