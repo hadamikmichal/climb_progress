@@ -1,3 +1,4 @@
+import { resolvedTheme } from '../../shared/theme';
 import type { ChartConfiguration } from 'chart.js';
 import { Assessment } from '../../core/models/assessment';
 import { climbingResults } from '../../core/logic/assessment/climbing';
@@ -7,10 +8,11 @@ import { CORE_LABELS, KIND_LABELS } from '../../core/logic/assessment/labels';
 const css = (n: string, f: string) => (typeof document !== 'undefined' ? getComputedStyle(document.documentElement).getPropertyValue(n).trim() : '') || f;
 
 export function palette() {
+  resolvedTheme(); // zależność: zmiana motywu przelicza wykresy
   return {
     // ograniczona paleta: grafit = bieżący wynik, kamień = odniesienie, pomarańcz = ryzyko, oliwka = drugi parametr
     accent: css('--chart-1', '#181c19'), ok: css('--chart-4', '#263019'), bad: css('--chart-3', '#d96c45'), warn: css('--chart-3', '#d96c45'),
-    info: css('--chart-2', '#777c74'), faint: '#c3c4bb', muted: css('--chart-2', '#777c74'),
+    info: css('--chart-2', '#777c74'), faint: css('--chart-faint', '#c3c4bb'), muted: css('--chart-2', '#777c74'),
   };
 }
 

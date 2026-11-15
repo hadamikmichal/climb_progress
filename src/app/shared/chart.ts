@@ -1,5 +1,6 @@
 import { afterNextRender, Component, DestroyRef, effect, ElementRef, inject, input, viewChild } from '@angular/core';
 import type { Chart, ChartConfiguration } from 'chart.js';
+import { resolvedTheme } from './theme';
 
 let chartLib: Promise<typeof import('chart.js/auto')> | null = null;
 const loadChart = () => (chartLib ??= import('chart.js/auto'));
@@ -37,6 +38,7 @@ export class ChartView {
     });
     effect(() => {
       this.config();
+      resolvedTheme(); // po zmianie motywu przerysuj z nowymi kolorami osi i siatki
       if (this.rendered) void this.draw();
     });
     inject(DestroyRef).onDestroy(() => this.chart?.destroy());
@@ -48,13 +50,15 @@ export class ChartView {
     // Styl „technical journal”: mono na osiach, minimalna siatka, widoczne punkty pomiarowe
     const text = cssVar('--muted') || '#777c74';
     Chart.defaults.color = text;
-    Chart.defaults.borderColor = 'rgba(24, 28, 25, 0.08)';
+    Chart.defaults.borderColor = cssVar('--chart-grid') || 'rgba(24, 28, 25, 0.08)';
     Chart.defaults.font.family = cssVar('--font-mono') || 'monospace';
     Chart.defaults.font.size = 11;
     Chart.defaults.plugins.legend.labels.boxWidth = 10;
     Chart.defaults.plugins.legend.labels.boxHeight = 10;
     Chart.defaults.plugins.legend.align = 'start';
-    Chart.defaults.plugins.tooltip.backgroundColor = '#181c19';
+    Chart.defaults.plugins.tooltip.backgroundColor = cssVar('--tooltip-bg') || '#181c19';
+    Chart.defaults.plugins.tooltip.titleColor = cssVar('--tooltip-ink') || '#f1f0e9';
+    Chart.defaults.plugins.tooltip.bodyColor = cssVar('--tooltip-ink') || '#f1f0e9';
     Chart.defaults.plugins.tooltip.titleFont = { family: cssVar('--font-mono') || 'monospace', size: 11 };
     Chart.defaults.plugins.tooltip.bodyFont = { family: cssVar('--font-mono') || 'monospace', size: 12 };
     Chart.defaults.plugins.tooltip.cornerRadius = 4;

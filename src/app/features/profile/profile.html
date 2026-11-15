@@ -117,7 +117,21 @@
   </section>
 
   <section class="pf-sec">
-    <header class="pf-head"><span class="num">06</span><h2>Dane i kopia zapasowa</h2><span class="eyebrow">offline · IndexedDB</span></header>
+    <header class="pf-head"><span class="num">06</span><h2>Wygląd</h2><span class="eyebrow">to urządzenie</span></header>
+    <div class="theme-seg" role="radiogroup" aria-label="Motyw">
+      @for (o of themeOptions; track o.key) {
+        <button type="button" role="radio" [attr.aria-checked]="theme.pref() === o.key" [class.on]="theme.pref() === o.key" (click)="theme.set(o.key)">
+          <span class="swatch" [attr.data-swatch]="o.key" aria-hidden="true"></span>
+          <span class="t">{{ o.label }}</span>
+          <span class="d">{{ o.desc }}</span>
+        </button>
+      }
+    </div>
+    <p class="faint small-note">Tryb aktywnego treningu i testu jest zawsze ciemny – lepsza czytelność na ścianie. @if (theme.pref() === 'auto') { Teraz: {{ theme.isDark() ? 'ciemny' : 'jasny' }} (ustawienie systemu). }</p>
+  </section>
+
+  <section class="pf-sec">
+    <header class="pf-head"><span class="num">07</span><h2>Dane i kopia zapasowa</h2><span class="eyebrow">offline · IndexedDB</span></header>
     <p class="muted">Dane są przechowywane wyłącznie lokalnie w tej przeglądarce (IndexedDB). Regularnie eksportuj kopię do pliku JSON.</p>
     <div class="btn-row">
       <button class="btn primary" type="button" (click)="exportData()">Eksportuj JSON</button>

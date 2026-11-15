@@ -5,6 +5,7 @@ import { filter, map } from 'rxjs';
 import { AppStore } from './core/data/store';
 import { Icon, IconName } from './shared/icon';
 import { BrandMark } from './shared/brand';
+import { ThemeService } from './shared/theme';
 
 interface NavItem { path: string; label: string; icon: IconName; exact?: boolean }
 
@@ -17,6 +18,7 @@ interface NavItem { path: string; label: string; icon: IconName; exact?: boolean
 export class App {
   protected readonly store = inject(AppStore);
   private readonly router = inject(Router);
+  private readonly theme = inject(ThemeService);
 
   private readonly url = toSignal(this.router.events.pipe(filter((e) => e instanceof NavigationEnd), map(() => this.router.url)), { initialValue: this.router.url });
   /** Ekran aktywnego treningu/testu ukrywa nawigację – mniej przypadkowych kliknięć na ścianie */
@@ -41,8 +43,9 @@ export class App {
   constructor() {
     // Tło całego dokumentu podąża za kontekstem (Active Workout Mode = grafit)
     effect(() => {
-      const dark = this.focusMode();
-      document.body.classList.toggle('mode-active', dark);
+      const focus = this.focusMode();
+      document.body.classList.toggle('mode-active', focus);
+      const dark = focus || this.theme.isDark();
       document.querySelector('meta[name="theme-color"]')?.setAttribute('content', dark ? '#181C19' : '#F1F0E9');
     });
   }

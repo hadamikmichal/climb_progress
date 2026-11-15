@@ -20,8 +20,15 @@
   --dur: #{t.$dur};
 }
 
-/* Active Workout Mode – osobny kontekst wizualny (klasa nadawana przez shell) */
-.mode-active { @include t.theme-workout; }
+/* Motywy: jasny (domyślny), ciemny, auto (zgodnie z systemem).
+   Atrybut data-theme ustawia ThemeService (oraz skrypt w index.html przed startem aplikacji). */
+:root[data-theme='dark'] { @include t.theme-dark; }
+@media (prefers-color-scheme: dark) {
+  :root[data-theme='auto'] { @include t.theme-dark; }
+}
+
+/* Active Workout Mode – zawsze ciemny kontekst (klasa nadawana przez shell) */
+.mode-active { @include t.theme-dark; }
 
 /* ---------- baza ---------- */
 * { box-sizing: border-box; }
@@ -247,7 +254,7 @@ a.list-item:hover { background: color-mix(in srgb, var(--surface-2) 50%, transpa
 
 /* ---------- arkusz / modal ---------- */
 .sheet-backdrop {
-  position: fixed; inset: 0; background: rgba(24, 28, 25, 0.55); z-index: 60;
+  position: fixed; inset: 0; background: var(--overlay); z-index: 60;
   display: flex; align-items: flex-end; justify-content: center;
   animation: fade var(--dur) var(--ease);
 }

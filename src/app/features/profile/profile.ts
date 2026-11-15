@@ -1,4 +1,5 @@
 import { Component, computed, inject, signal } from '@angular/core';
+import { ThemePref, ThemeService } from '../../shared/theme';
 import { RouterLink } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 import { AppStore } from '../../core/data/store';
@@ -26,6 +27,20 @@ import { DatePlPipe } from '../../shared/pipes';
     .cyc { display: flex; flex-direction: column; gap: 2px; }
     .cyc small { font-size: 0.78rem; }
     @media (max-width: 559px) { .pf-save { align-self: stretch; } }
+    .theme-seg { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
+    .theme-seg button {
+      display: flex; flex-direction: column; align-items: flex-start; gap: 6px; min-height: 96px; padding: 12px;
+      border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--surface); color: var(--text);
+      font: inherit; text-align: left; cursor: pointer; transition: border-color var(--dur) var(--ease);
+    }
+    .theme-seg button.on { border-color: var(--text); box-shadow: inset 0 -3px 0 var(--accent); }
+    .theme-seg .t { font: 700 0.95rem var(--font-heading); }
+    .theme-seg .d { font-size: 0.75rem; color: var(--muted); line-height: 1.3; }
+    .swatch { width: 28px; height: 18px; border-radius: 4px; border: 1px solid var(--border); }
+    .swatch[data-swatch='light'] { background: #f1f0e9; }
+    .swatch[data-swatch='dark'] { background: #181c19; }
+    .swatch[data-swatch='auto'] { background: linear-gradient(135deg, #f1f0e9 50%, #181c19 50%); }
+    .small-note { font-size: 0.82rem; }
   `,
 })
 export class ProfilePage {
@@ -41,6 +56,12 @@ export class ProfilePage {
 
   protected readonly p = signal<UserProfile>(structuredClone(this.store.profile()));
   protected readonly params = signal<TrainingParams | null>(this.store.cycle() ? structuredClone(this.store.cycle()!.params) : null);
+  protected readonly theme = inject(ThemeService);
+  protected readonly themeOptions: { key: ThemePref; label: string; desc: string }[] = [
+    { key: 'light', label: 'Jasny', desc: 'Kreda i grafit – domyślny' },
+    { key: 'dark', label: 'Ciemny', desc: 'Grafitowe tło, mniej światła' },
+    { key: 'auto', label: 'Auto', desc: 'Zgodnie z ustawieniem systemu' },
+  ];
   protected readonly msg = signal<{ kind: 'ok' | 'bad' | 'info'; text: string } | null>(null);
   protected readonly busy = signal(false);
 
