@@ -1,0 +1,186 @@
+<div class="page">
+  @let c = cycle();
+  <header class="page-head">
+    <div>
+      <div class="eyebrow">{{ store.today() | datePl }}</div>
+      <h1>
+        @if (c && c.planStart && store.currentWeek() >= 1 && store.currentWeek() <= c.weeks) {
+          Tydzień {{ store.currentWeek() }} z {{ c.weeks }}
+        } @else if (c) { {{ c.name }} } @else { ClimbProgress }
+      </h1>
+      @if (c) { <p class="muted">{{ store.stage() }}</p> }
+    </div>
+    @if (c) {
+      <a class="btn sm" routerLink="/readiness">{{ store.todayReadiness() ? 'Gotowość: ' + store.todayAssessment()!.title : 'Oceń gotowość' }}</a>
+    }
+  </header>
+
+  <!-- Brak cyklu: start -->
+  @if (!c) {
+    @if (completedCycle(); as cc) {
+      <section class="card">
+        <div class="eyebrow">{{ cc.cycle.name }} zakończony</div>
+        <h2>Porównaj test początkowy i końcowy</h2>
+        <div class="btn-row">
+          @if (cc.final) { <a class="btn primary" [routerLink]="['/assessment', cc.final.id]">Baseline vs Retest</a> }
+          @else if (cc.legacyFinal) { <a class="btn primary" [routerLink]="['/tests', cc.legacyFinal.id]">Raport końcowy</a> }
+          <a class="btn" routerLink="/progress">Progres</a>
+        </div>
+      </section>
+    }
+    <section class="card hero">
+      <div class="eyebrow">{{ completedCycle() ? 'Nowy cykl' : 'Start' }}</div>
+      <h2>Zacznij od Baseline Test v1.0</h2>
+      <p class="muted">Obowiązkowy punkt odniesienia przed pierwszym cyklem. Dwie sesje w odstępie 48–72 h: <strong>dzień 1</strong> – siła palców, przyciągania i core oraz dead hang (punktacja 9c), <strong>dzień 2</strong> – 4 × 6a na tej samej drodze z pomiarem czasu, pompowania i krzywej regeneracji przedramion.</p>
+      <p class="muted">Potem 6-tygodniowy plan: trudne drogi (A), Max Hangs + wytrzymałość tlenowa (B), wytrzymałość siłowa (C), z deloadem, testem pośrednim po 3 tygodniach i pełnym retestem po 6.</p>
+      <label class="field">Data dnia 1 (dzień 2 – automatycznie 2 dni później)
+        <input type="date" [(ngModel)]="baselineDate" />
+      </label>
+      <p class="faint">Dni treningowe i parametry chwytotablicy możesz ustawić w <a routerLink="/profile">Profilu</a>.</p>
+      <button class="btn primary xl" type="button" (click)="startCycle()" [disabled]="busy()">Rozpocznij cykl</button>
+    </section>
+  } @else if (c.status === 'baseline') {
+    <!-- Faza testu początkowego -->
+    @if (baselineDone()) {
+      <section class="card hero">
+        <div class="eyebrow">Baseline Test zakończony</div>
+        <h2>Wygeneruj plan 6-tygodniowy</h2>
+        @if (baselineSummary(); as b) {
+          <div class="grid-2 grid-md-4">
+            <app-score-chip label="Palce" [score]="b.s?.finger?.score ?? null" />
+            <app-score-chip label="Przyciąganie" [score]="b.s?.pullUp?.score ?? null" />
+            <app-score-chip label="Core" [score]="b.s?.core?.score ?? null" />
+            <app-score-chip label="Dead Hang" [score]="b.s?.deadHang?.score ?? null" />
+          </div>
+          @if (b.c; as c) {
+            <p class="muted">{{ c.time.completedRoutes }}/{{ b.planned }} dróg · zmiana czasu {{ c.time.timeChangePercent ?? '–' }}% · pompowanie po ostatniej {{ c.recovery.pumpAfterLastRoute ?? '–' }}/10 · po 3 min {{ c.recovery.points[3].pump ?? '–' }}/10</p>
+          }
+          @if (b.focus.length) { <p><strong>Priorytety:</strong> {{ b.focus.map(focusLabel).join(' · ') }}</p> }
+        } @else if (legacySummary(); as s) {
+          <div class="grid-3">
+            <div class="stat"><span class="value">{{ s.completed }}/3</span><span class="label">ukończone drogi</span></div>
+            <div class="stat"><span class="value">{{ s.maxPump ?? '–' }}</span><span class="label">maks. pompowanie</span></div>
+            <div class="stat"><span class="value">{{ s.avgRpe ?? '–' }}</span><span class="label">średnie RPE</span></div>
+          </div>
+        }
+        <label class="field">Początek tygodnia 1 (poniedziałek)
+          <input type="date" [ngModel]="planStart || suggestedStart()" (ngModelChange)="planStart = $event" />
+        </label>
+        <p class="faint">Proponowany termin zostawia co najmniej jeden dzień odpoczynku po teście.</p>
+        <div class="btn-row">
+          <button class="btn primary big" type="button" (click)="generatePlan()" [disabled]="busy()">Generuj plan</button>
+          @if (baseline(); as b) { <a class="btn big" [routerLink]="['/assessment', b.id]">Raport testu</a> }
+          @else if (legacyBaseline(); as bt) { <a class="btn big" [routerLink]="['/tests', bt.id]">Raport testu</a> }
+        </div>
+      </section>
+    } @else {
+      <div class="note info">Baseline Test jest obowiązkowy przed pierwszym cyklem. Sesje możesz wykonać niezależnie – dzień 2 minimum 48 h po dniu 1.@if (baseline(); as b) { <a [routerLink]="['/assessment', b.id]">Wyniki cząstkowe</a> }</div>
+      @for (p of store.cyclePlanned(); track p.id) {
+        @if (p.type === 'BASELINE') { <app-planned-card [workout]="p" [hero]="p.status !== 'done'" /> }
+      }
+    }
+  } @else {
+    <!-- Aktywny cykl -->
+    @for (p of store.overdue(); track p.id) {
+      <app-planned-card [workout]="p" />
+    }
+
+    @if (store.nextWorkout(); as next) {
+      @if (recovery().assessment; as a) {
+        @if (a.level !== 'go') {
+          <div class="note" [class.warn]="a.level === 'easy'" [class.bad]="a.level === 'rest'">
+            <strong>{{ a.title }}.</strong> @for (m of a.messages; track m) { {{ m }} }
+          </div>
+        }
+      }
+      <app-planned-card [workout]="next" [hero]="true" />
+    } @else if (!store.overdue().length) {
+      <section class="card"><h2>Brak zaplanowanych treningów</h2><p class="muted">Plan cyklu został zrealizowany. Sprawdź <a routerLink="/progress">Progres</a>.</p></section>
+    }
+
+    <section class="grid-2 grid-md-3">
+      <div class="card flat stat">
+        <span class="label">Ten tydzień</span>
+        <span class="value">{{ week().done + week().partial }}/{{ week().total }}</span>
+        <span class="label">@if (week().partial) { {{ week().partial }} częściowo · } @if (week().skipped) { {{ week().skipped }} pominięte · } {{ week().left }} do zrobienia</span>
+      </div>
+      <div class="card flat stat">
+        <span class="label">Realizacja planu</span>
+        <span class="value">{{ regularity().rate ?? '–' }}{{ regularity().rate != null ? '%' : '' }}</span>
+        <div class="progress"><span [style.width.%]="cyclePct()"></span></div>
+        <span class="label">cykl rozliczony w {{ cyclePct() }}%</span>
+      </div>
+      <div class="card flat stat">
+        <span class="label">Poziom</span>
+        <span class="value">{{ store.profile().grade }}</span>
+        <span class="label">cel: {{ store.profile().targetGrade }}@if (hardestRecent()) { · max (6 tyg.): {{ hardestRecent() }} }</span>
+      </div>
+    </section>
+
+    <section class="grid-md-2">
+      <div class="card">
+        <div class="card-title"><h3>Regeneracja</h3>@if (recovery().days != null) { <span class="tag">{{ recovery().days }} d od ciężkiej</span> }</div>
+        <p>{{ recovery().text }}</p>
+        @if (!store.todayReadiness()) {
+          <a class="btn" routerLink="/readiness">Wypełnij ocenę gotowości</a>
+        }
+      </div>
+      <div class="card">
+        <h3>Cel cyklu</h3>
+        <p>Siła palców i powtarzalność trudnych dróg: stabilne tempo i mniej pompowania na 4 × 6a, szybsza regeneracja przedramion, droga do {{ store.profile().targetGrade }} i 7a.</p>
+        @if (baselineSummary(); as b) {
+          @if (b.c; as c) { <p class="muted">Start: {{ c.time.completedRoutes }}/{{ b.planned }} dróg, pompowanie po ostatniej {{ c.recovery.pumpAfterLastRoute ?? '–' }}/10, po 3 min {{ c.recovery.points[3].pump ?? '–' }}/10.</p> }
+          @if (b.focus.length) { <p class="muted">Priorytety z testu: {{ b.focus.map(focusLabel).join(' · ') }}.</p> }
+        }
+      </div>
+    </section>
+  }
+
+  @if (c && c.status === 'active') {
+    <section class="card">
+      <div class="card-title"><h3>Ostatnie tygodnie</h3><a class="btn ghost sm" routerLink="/progress">Więcej</a></div>
+      @if (miniChart(); as cfg) {
+        <app-chart [config]="cfg" [height]="140" label="Ukończone drogi w ostatnich tygodniach" />
+      } @else {
+        <p class="empty">Wykres pojawi się po pierwszych zapisanych treningach.</p>
+      }
+    </section>
+
+    <section class="card">
+      <div class="card-title"><h3>Ostatnie wyniki</h3><a class="btn ghost sm" routerLink="/history">Historia</a></div>
+      @for (r of recent(); track r.w.id) {
+        <a class="list-item" [routerLink]="['/history', r.w.id]">
+          <span class="type-chip" [class]="'type-chip ' + r.w.type">{{ r.w.type }}</span>
+          <div class="grow">
+            <div><strong>{{ templates[r.w.type].name }}</strong> @if (r.w.completion === 'partial') { <span class="badge partial">częściowo</span> }</div>
+            <small>{{ r.w.date | datePl }} · @if (r.total) { drogi {{ r.routes }}/{{ r.total }}@if (r.hardest) { (max {{ r.hardest }}) } · } RPE {{ r.rpe ?? '–' }} · pompa {{ r.pump ?? '–' }}/10</small>
+          </div>
+        </a>
+      } @empty {
+        <p class="empty">Brak zapisanych treningów.</p>
+      }
+    </section>
+  }
+
+  @if (lastEvents().length) {
+    <section class="card">
+      <h3>Dlaczego plan się zmienił</h3>
+      @for (e of lastEvents(); track e.id) {
+        <div class="note" [class.ok]="e.kind === 'progress'" [class.warn]="e.kind === 'reduce' || e.kind === 'readiness'" [class.info]="e.kind === 'reschedule'" [class.bad]="e.kind === 'skip'">
+          <small class="faint">{{ e.timestamp | datePl }}</small>
+          <p>{{ e.reason }}</p>
+        </div>
+      }
+    </section>
+  }
+
+  @if (lastReport(); as r) {
+    <section class="card">
+      <div class="card-title"><h3>Podsumowanie tygodnia {{ r.week }}</h3><a class="btn ghost sm" routerLink="/progress" fragment="reports">Wszystkie</a></div>
+      @for (l of r.lines; track $index) { <p>{{ l }}</p> }
+      @if (r.nextWeek.length) {
+        <div class="note accent">@for (l of r.nextWeek; track $index) { <p>{{ l }}</p> }</div>
+      }
+    </section>
+  }
+</div>

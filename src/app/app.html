@@ -1,0 +1,20 @@
+@if (store.error(); as err) {
+  <div class="page"><div class="card danger"><h2>Błąd danych</h2><p>{{ err }}</p></div></div>
+} @else if (!store.ready()) {
+  <div class="boot">ClimbProgress…</div>
+} @else {
+  <div class="shell" [class.focus]="focusMode()">
+    @if (!focusMode()) {
+      <nav class="nav" aria-label="Główna nawigacja">
+        <div class="brand"><span class="logo">▲</span><span>ClimbProgress</span></div>
+        @for (item of nav; track item.path) {
+          <a [routerLink]="item.path" routerLinkActive="active" [routerLinkActiveOptions]="{ exact: !!item.exact }" class="nav-link">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path [attr.d]="item.icon" /></svg>
+            <span>{{ item.label }}</span>
+          </a>
+        }
+      </nav>
+    }
+    <main class="main"><router-outlet /></main>
+  </div>
+}
