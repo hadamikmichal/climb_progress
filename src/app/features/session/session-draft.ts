@@ -1,8 +1,9 @@
 import {
-  CompletedWorkout, ExerciseLog, GripPosition, HoldType, PlannedWorkout, RouteLog, SetLog, TrainingCycle, TrainingParams, TrainingType,
+  AscentStyle, CompletedWorkout, ExerciseLog, GripPosition, HoldType, PlannedWorkout, RouteLog, SetLog, TrainingCycle, TrainingParams, TrainingType,
 } from '../../core/models/models';
 import { uid } from '../../core/logic/ids';
 import { TEMPLATES } from '../../core/logic/templates';
+import { PhaseTimer, startTimer, timerDone, timerEndMs } from '../../core/logic/timer';
 
 /** Stan drogi w trakcie sesji: jeszcze nie wspinana / ukończona / odpadnięcie */
 export type RouteState = 'todo' | 'sent' | 'fell';
@@ -15,6 +16,7 @@ export interface DraftRoute {
   pump: number | null;
   rpe: number | null;
   cruxSent: boolean | null;
+  ascent?: AscentStyle | null;
   notes: string;
   timestamp: string;
 }
@@ -57,6 +59,10 @@ export interface WorkoutDraft {
   notes: string;
   durationMin: number | null;
   forcePartial: boolean;
+  /** Aktualny krok (indeks ćwiczenia w szablonie) w trybie aktywnego treningu */
+  step?: number;
+  /** Bieżąca faza timera – znaczniki czasu, odtwarzane po odświeżeniu */
+  timer?: PhaseTimer | null;
 }
 
 export function newDraft(p: PlannedWorkout, params: TrainingParams, deload: boolean, light: boolean, ts: string, hangBlocked: boolean): WorkoutDraft {
@@ -90,6 +96,8 @@ export function newDraft(p: PlannedWorkout, params: TrainingParams, deload: bool
     notes: '',
     durationMin: null,
     forcePartial: false,
+    step: 0,
+    timer: null,
   };
 }
 
@@ -124,7 +132,7 @@ export function draftToCompleted(d: WorkoutDraft, p: PlannedWorkout, cycle: Trai
     .filter((r) => r.state !== 'todo')
     .map((r, i) => ({
       id: r.id, order: i + 1, setIndex: r.setIndex, grade: r.grade, lengthM: 13, completed: r.state === 'sent',
-      pump: r.pump, rpe: r.rpe, cruxSent: r.cruxSent, notes: r.notes, timestamp: r.timestamp,
+      pump: r.pump, rpe: r.rpe, cruxSent: r.cruxSent, ascent: r.state === 'sent' ? r.ascent ?? null : null, notes: r.notes, timestamp: r.timestamp,
     }));
   const h = d.hang;
   const hangs = h && !h.blocked && h.setsDone > 0
@@ -171,3 +179,40 @@ export function elapsedMin(startedAt: string, nowMs: number): number {
   return Math.max(0, Math.floor((nowMs - Date.parse(startedAt)) / 60000));
 }
 
+
+/* ---------------- timer faz (Active Workout Mode) ---------------- */
+
+export const HARD_ROUTE_REST_SEC = 240;
+
+/** Start zwisu – faza pracy o długości z parametrów (lub z korekty na miejscu) */
+export function startHang(d: WorkoutDraft, at: string): void {
+  if (!d.hang || d.hang.blocked || d.hang.setsDone >= d.hang.setsPlanned) return;
+  d.timer = startTimer('work', 'Zwis', d.hang.hangSec, at);
+}
+
+/** Przerwa po drodze / próbie / serii */
+export function startRest(d: WorkoutDraft, label: string, sec: number, at: string): void {
+  d.timer = startTimer('rest', label, sec, at);
+}
+
+/**
+ * Deterministyczne „dogonienie” zegara: zakończony zwis zalicza serię i od razu (od momentu końca zwisu)
+ * uruchamia przerwę; zakończona przerwa czyści timer. Działa tak samo na żywo i po powrocie do aplikacji.
+ * @returns true, jeśli stan się zmienił
+ */
+export function advanceTimers(d: WorkoutDraft, nowMs: number): boolean {
+  let changed = false;
+  for (let guard = 0; guard < 4 && d.timer && timerDone(d.timer, nowMs); guard++) {
+    const t = d.timer;
+    changed = true;
+    if (t.kind === 'work' && d.hang) {
+      d.hang.setsDone = Math.min(d.hang.setsPlanned, d.hang.setsDone + 1);
+      d.timer = d.hang.setsDone < d.hang.setsPlanned
+        ? startTimer('rest', 'Przerwa między seriami', d.params.hangboard.restSec, new Date(timerEndMs(t)).toISOString())
+        : null;
+    } else {
+      d.timer = null;
+    }
+  }
+  return changed;
+}
