@@ -12,6 +12,7 @@ import { YesNo } from '../../shared/yes-no';
 import { LiveClock } from '../../shared/live-clock';
 import { TestReadinessForm } from './readiness-form';
 import { TestFigure } from './test-figure';
+import { BaselineSteps, stepNumber } from './baseline-steps';
 
 type Mutator = (a: Assessment) => void;
 type Step = 'readiness' | 'warmup' | 'route' | 'test';
@@ -19,7 +20,7 @@ type Step = 'readiness' | 'warmup' | 'route' | 'test';
 /** Dzień 2 – Climbing Performance: 4 × 6a (lub 3 × 6a w teście pośrednim) + Recovery Curve */
 @Component({
   selector: 'app-climbing-session',
-  imports: [FormsModule, Scale, YesNo, LiveClock, TestReadinessForm, TestFigure],
+  imports: [FormsModule, Scale, YesNo, LiveClock, TestReadinessForm, TestFigure, BaselineSteps],
   templateUrl: './climbing-session.html',
   styleUrl: './assessment.scss',
 })
@@ -75,6 +76,36 @@ export class ClimbingSession {
     if (c.attempts.length || c.status === 'completed') return 'test';
     if (c.warmupChecked.length < CLIMBING_WARMUP.length) return 'warmup';
     return this.routeOk() ? 'test' : 'route';
+  });
+
+  /** Krok wskaźnika: przygotowanie i próby = Climbing Test, regeneracja = Recovery Curve (w teście pośrednim warunki to krok 01) */
+  protected readonly stepNo = computed(() => {
+    const kind = this.assessment().kind;
+    const st = this.step();
+    const ph = this.phase();
+    if (st === 'test' && (ph === 'recovery' || ph === 'done')) return stepNumber(kind, 'recovery');
+    if (kind === 'CONTROL' && (st === 'readiness' || st === 'warmup')) return stepNumber(kind, 'readiness');
+    return stepNumber(kind, 'climbing');
+  });
+  protected readonly stepTitle = computed(() => {
+    const st = this.step();
+    const ph = this.phase();
+    if (st === 'readiness') return 'Readiness';
+    if (st === 'warmup') return 'Rozgrzewka';
+    if (st === 'route') return 'Droga testowa';
+    if (ph === 'recovery') return 'Recovery Curve';
+    if (ph === 'done') return 'Wynik sesji';
+    return 'Climbing Test';
+  });
+
+  /** Pozostałe (jeszcze niewykonane) ważne próby – puste pola w liczniku */
+  protected readonly pendingSlots = computed(() => {
+    const c = this.c();
+    if (c.stoppedByFatigue) return [];
+    const cur = this.current();
+    const used = this.valid().length + (cur && !cur.saved && cur.status !== 'invalid' ? 1 : 0);
+    const shown = c.attempts.length;
+    return Array.from({ length: Math.max(0, c.plannedAttempts - used) }, (_, i) => shown + i + 1);
   });
 
   /* ---- recovery: zegar i sygnały ---- */

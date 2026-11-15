@@ -18,50 +18,70 @@ import { DatePlPipe } from '../../shared/pipes';
       <header class="page-head">
         <div>
           <div class="eyebrow">{{ store.today() | datePl }}</div>
-          <h1>Ocena gotowości</h1>
-          <p class="muted">Wypełnij codziennie lub przed treningiem. Aplikacja nie diagnozuje – jedynie ogranicza obciążenie.</p>
+          <h1>Gotowość</h1>
+          <p class="muted">30 sekund przed treningiem. Aplikacja nie diagnozuje – jedynie ogranicza obciążenie.</p>
         </div>
       </header>
 
-      <section class="card">
-        <label class="field">Samopoczucie</label>
-        <app-scale [min]="1" [max]="5" [value]="wellbeing()" (valueChange)="wellbeing.set($event)" low="bardzo złe" high="świetne" />
-        <label class="field">Zmęczenie</label>
-        <app-scale [min]="1" [max]="5" [hotFrom]="4" [value]="fatigue()" (valueChange)="fatigue.set($event)" low="wypoczęty" high="bardzo zmęczony" />
-        <label class="field">Jakość snu</label>
-        <app-scale [min]="1" [max]="5" [value]="sleep()" (valueChange)="sleep.set($event)" low="bardzo zła" high="bardzo dobra" />
-        <label class="field">Ból palców?</label>
-        <app-yes-no [value]="fingerPain()" (valueChange)="fingerPain.set($event)" [warnOnYes]="true" />
-        <label class="field">Ból łokci lub barków?</label>
-        <app-yes-no [value]="elbowPain()" (valueChange)="elbowPain.set($event)" [warnOnYes]="true" />
-        <label class="field">Nietypowe zmęczenie / objawy choroby?</label>
-        <app-yes-no [value]="unusual()" (valueChange)="unusual.set($event)" [warnOnYes]="true" />
+      <section class="rd">
+        <div class="grp"><span class="kicker">01 · Samopoczucie</span>
+          <app-scale [min]="1" [max]="5" [value]="wellbeing()" (valueChange)="wellbeing.set($event)" low="bardzo złe" high="świetne" label="Samopoczucie" /></div>
+        <div class="grp"><span class="kicker">02 · Zmęczenie</span>
+          <app-scale [min]="1" [max]="5" [hotFrom]="4" [value]="fatigue()" (valueChange)="fatigue.set($event)" low="wypoczęty" high="bardzo zmęczony" label="Zmęczenie" /></div>
+        <div class="grp"><span class="kicker">03 · Jakość snu</span>
+          <app-scale [min]="1" [max]="5" [value]="sleep()" (valueChange)="sleep.set($event)" low="bardzo zła" high="bardzo dobra" label="Sen" /></div>
+        <div class="qs">
+          <span class="kicker">04 · Sygnały ryzyka</span>
+          <div class="q"><span>Ból palców</span><app-yes-no [value]="fingerPain()" (valueChange)="fingerPain.set($event)" [warnOnYes]="true" label="Ból palców" /></div>
+          <div class="q"><span>Ból łokci lub barków</span><app-yes-no [value]="elbowPain()" (valueChange)="elbowPain.set($event)" [warnOnYes]="true" label="Ból łokci lub barków" /></div>
+          <div class="q"><span>Nietypowe zmęczenie / objawy choroby</span><app-yes-no [value]="unusual()" (valueChange)="unusual.set($event)" [warnOnYes]="true" label="Nietypowe zmęczenie" /></div>
+        </div>
         <label class="field">Notatka (opcjonalnie)<input [(ngModel)]="notes" /></label>
 
         @if (preview(); as a) {
-          <div class="note" [class.ok]="a.level === 'go'" [class.warn]="a.level === 'easy'" [class.bad]="a.level === 'rest'">
+          <div class="verdict" [class.go]="a.level === 'go'" [class.easy]="a.level === 'easy'" [class.rest]="a.level === 'rest'">
+            <span class="eyebrow">Wynik</span>
             <strong>{{ a.title }}</strong>
             @for (m of a.messages; track m) { <p>{{ m }}</p> }
           </div>
         }
-        <button class="btn primary xl block" type="button" [disabled]="!complete() || busy()" (click)="save()">Zapisz ocenę</button>
+        <div class="foot"><button class="btn primary xl block" type="button" [disabled]="!complete() || busy()" (click)="save()">Zapisz ocenę</button></div>
       </section>
 
-      <section class="card">
-        <h3>Ostatnie oceny</h3>
+      <section class="rd-hist">
+        <header class="hist-head"><h2>Ostatnie oceny</h2><span class="eyebrow">14 dni</span></header>
         @for (r of history(); track r.c.id) {
-          <div class="list-item">
+          <div class="hrow">
+            <span class="d num">{{ r.c.date | datePl }}</span>
             <div class="grow">
-              <strong>{{ r.c.date | datePl }}</strong> – {{ r.a.title }}
-              <small>samopoczucie {{ r.c.wellbeing }}/5 · zmęczenie {{ r.c.fatigue }}/5 · sen {{ r.c.sleep }}/5
-                @if (r.c.fingerPain) { · ból palców } @if (r.c.elbowShoulderPain) { · ból łokci/barków } @if (r.c.unusualFatigue) { · nietypowe zmęczenie }</small>
+              <strong [class.warnv]="r.a.level !== 'go'">{{ r.a.title }}</strong>
+              <small class="num">S {{ r.c.wellbeing }}/5 · Z {{ r.c.fatigue }}/5 · Sen {{ r.c.sleep }}/5@if (r.c.fingerPain) { · ból palców }@if (r.c.elbowShoulderPain) { · ból łokci/barków }@if (r.c.unusualFatigue) { · nietypowe zmęczenie }</small>
               @if (r.c.notes) { <small class="faint">{{ r.c.notes }}</small> }
             </div>
-            <button class="btn ghost sm" type="button" (click)="store.deleteReadiness(r.c.id)" aria-label="Usuń">✕</button>
+            <button class="btn ghost sm" type="button" (click)="store.deleteReadiness(r.c.id)" aria-label="Usuń ocenę">✕</button>
           </div>
         } @empty { <p class="empty">Brak ocen.</p> }
       </section>
     </div>
+  `,
+  styles: `
+    .rd { display: flex; flex-direction: column; gap: var(--s5); }
+    .grp { display: flex; flex-direction: column; gap: var(--s2); }
+    .qs { display: flex; flex-direction: column; border-top: 1px solid var(--border); }
+    .qs > .kicker { padding: var(--s3) 0 var(--s2); }
+    .q { display: grid; grid-template-columns: minmax(0, 1fr) 176px; align-items: center; gap: var(--s3); min-height: 60px; padding: 6px 0; border-top: 1px solid var(--border); font-weight: 500; }
+    .verdict { display: flex; flex-direction: column; gap: 4px; padding: var(--s4); border: 1px solid var(--border-strong); border-radius: var(--radius); font-size: 0.9rem; }
+    .verdict strong { font: 800 1.4rem var(--font-heading); letter-spacing: -0.02em; }
+    .verdict.go { box-shadow: inset 4px 0 0 var(--accent); }
+    .verdict.easy, .verdict.rest { box-shadow: inset 4px 0 0 var(--warn); border-color: var(--warn); }
+    .foot { position: sticky; bottom: calc(var(--nav-h) + env(safe-area-inset-bottom)); padding: var(--s3) 0; background: linear-gradient(to top, var(--bg) 70%, transparent); }
+    @media (min-width: 1024px) { .foot { bottom: 0; } }
+    .rd-hist { display: flex; flex-direction: column; }
+    .hist-head { display: flex; align-items: baseline; justify-content: space-between; padding-top: var(--s2); border-top: 1px solid var(--border-strong); margin-bottom: var(--s2); }
+    .hrow { display: flex; align-items: flex-start; gap: var(--s3); padding: 10px 0; border-bottom: 1px solid var(--border); }
+    .hrow .d { width: 92px; flex: none; font-size: 0.8rem; color: var(--muted); padding-top: 2px; }
+    .hrow .grow { display: flex; flex-direction: column; gap: 2px; }
+    .warnv { color: var(--warn); }
   `,
 })
 export class ReadinessPage {

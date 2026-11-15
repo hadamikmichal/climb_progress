@@ -1,12 +1,15 @@
 import { Component, computed, effect, inject, input, signal, untracked } from '@angular/core';
 import { Router, RouterLink } from '@angular/router';
 import { AppStore } from '../../core/data/store';
+import { LeaveGuarded } from '../../shared/leave-guard';
 import { Assessment } from '../../core/models/assessment';
 import { KIND_LABELS, PART_LABELS, TEST_STATUS_LABELS } from '../../core/logic/assessment/labels';
 import { TEMPLATES } from '../../core/logic/templates';
 import { DatePlPipe } from '../../shared/pipes';
 import { StrengthSession } from './strength-session';
 import { ClimbingSession } from './climbing-session';
+import { BaselineSteps, stepNumber } from './baseline-steps';
+import { Icon } from '../../shared/icon';
 
 /**
  * Test Mode – aktywna sesja Baseline Test v1.0 (dzień 1 lub 2) dla zaplanowanej jednostki.
@@ -15,19 +18,20 @@ import { ClimbingSession } from './climbing-session';
  */
 @Component({
   selector: 'app-assessment-run',
-  imports: [RouterLink, DatePlPipe, StrengthSession, ClimbingSession],
+  imports: [RouterLink, DatePlPipe, StrengthSession, ClimbingSession, Icon, BaselineSteps],
   template: `
     @let p = planned();
-    <div class="page">
+    <div class="page run">
       @if (!p || !p.part) {
         <div class="card"><h2>Nie znaleziono sesji testu</h2><a class="btn" routerLink="/plan">Wróć do planu</a></div>
       } @else {
-        <header class="page-head">
-          <div>
-            <div class="eyebrow">{{ kindLabel() }} · {{ p.date | datePl }}</div>
-            <h1>{{ partLabel() }}</h1>
+        <header class="run-bar">
+          <a class="icon-btn" routerLink="/" aria-label="Przerwij – wyniki są zapisane"><app-icon name="x" /></a>
+          <div class="grow">
+            <div class="eyebrow">{{ kindLabel() }}</div>
+            <div class="run-title">{{ partLabel() }}</div>
           </div>
-          <a class="btn sm" routerLink="/">Przerwij</a>
+          <span class="eyebrow saved" [class.err]="!!saveError()">{{ saveError() ? 'błąd zapisu' : local() ? 'zapis auto' : (p.date | datePl) }}</span>
         </header>
         @if (local(); as a) {
           @if (saveError()) { <div class="note bad">{{ saveError() }}</div> }
@@ -36,33 +40,55 @@ import { ClimbingSession } from './climbing-session';
           } @else if (p.part === 'climbing' && a.climbing) {
             <app-climbing-session [assessment]="a" [referenceRoute]="referenceRoute()" (update)="apply($event)" (postpone)="postpone($event)" />
           }
-          <p class="faint center small">Status sesji: {{ statusLabel() }} · zapis automatyczny</p>
           @if (partStatus() !== 'completed') {
-            <button class="btn ghost block" type="button" (click)="discard()">Porzuć tę sesję (usuń jej dane)</button>
+            <button class="btn ghost block discard" type="button" (click)="discard()">Porzuć tę sesję (usuń jej dane)</button>
           }
         } @else {
-          <section class="card hero">
+          <app-baseline-steps [kind]="kind()" [current]="introStep()" />
+          <section class="intro">
+            <h1 class="intro-title">{{ partLabel() }}</h1>
             <p class="muted">{{ template().goal }}</p>
-            @if (partStatus() === 'postponed') { <div class="note warn">Sesja była przełożona. Rozpoczęcie utworzy ją od nowa.</div> }
-            <ul class="presc">
+            @if (partStatus() === 'postponed') { <p class="note warn">Sesja była przełożona. Rozpoczęcie utworzy ją od nowa.</p> }
+            <ul class="facts">
               @if (p.part === 'strength') {
-                <li>Weighted Pull-up 1RM · Max Finger Strength 20 mm / 5 s · Core · Dead Hang</li>
-                <li>ok. 60–75 min, każdy pomiar ma protokół, jednostkę i punktację 9c</li>
+                <li><span class="num">02</span>Weighted Pull-up 1RM</li>
+                <li><span class="num">03</span>Max Hang · 20 mm / 5 s</li>
+                <li><span class="num">04</span>Core · L-sit / Front Lever</li>
+                <li><span class="num">05</span>Dead Hang · maks. 6:00</li>
+                <li><span class="num">⏱</span>ok. 60–75 min</li>
               } @else {
-                <li>{{ p.type === 'CONTROL' ? 3 : 4 }} × 6a na tej samej drodze, przerwy dokładnie 3:00</li>
-                <li>Czas każdej drogi, RPE, pompowanie · Recovery Curve 0–3 min</li>
+                <li><span class="num">{{ p.type === 'CONTROL' ? '×3' : '×4' }}</span>6a na tej samej drodze · przerwy 3:00</li>
+                <li><span class="num">⏱</span>Czas, RPE i pompowanie po każdej próbie</li>
+                <li><span class="num">↘</span>Recovery Curve · 0, 1, 2, 3 min</li>
               }
-              <li>Wyniki zapisują się automatycznie – test można przerwać i wznowić.</li>
+              <li><span class="num">✓</span>Autozapis – test można przerwać i wznowić</li>
             </ul>
-            <button class="btn primary xl" type="button" (click)="begin()" [disabled]="busy()">Rozpocznij sesję</button>
           </section>
+          <div class="step-foot">
+            <button class="btn primary xl" type="button" (click)="begin()" [disabled]="busy()">Rozpocznij sesję</button>
+          </div>
         }
       }
     </div>
   `,
-  styles: `.presc { margin: 0; padding-left: 18px; display: flex; flex-direction: column; gap: 2px; } .center { text-align: center; } .small { font-size: 0.8rem; }`,
+  styles: `
+    .run { max-width: 640px; padding-top: 0; gap: var(--s5); }
+    .run-bar { position: sticky; top: 0; z-index: 20; display: flex; align-items: center; gap: var(--s2); padding: calc(var(--s2) + env(safe-area-inset-top)) 0 var(--s2); background: var(--bg); border-bottom: 1px solid var(--border); }
+    .run-title { font-family: var(--font-heading); font-weight: 700; font-size: 0.95rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .icon-btn { display: inline-grid; place-items: center; width: 48px; height: 48px; border-radius: 8px; color: var(--text); --icon: 22px; flex: none; }
+    .icon-btn:hover { background: var(--surface); }
+    .saved { white-space: nowrap; }
+    .saved.err { color: var(--warn); }
+    .intro { display: flex; flex-direction: column; gap: var(--s4); }
+    .intro-title { font-size: clamp(2.2rem, 9vw, 3rem); line-height: 0.95; letter-spacing: -0.035em; }
+    .facts { list-style: none; margin: 0; padding: 0; border-top: 1px solid var(--border); }
+    .facts li { display: flex; gap: var(--s3); padding: 12px 0; border-bottom: 1px solid var(--border); font-weight: 500; }
+    .facts .num { color: var(--accent-strong); min-width: 28px; }
+    .step-foot { position: sticky; bottom: 0; padding: var(--s3) 0 calc(var(--s3) + env(safe-area-inset-bottom)); background: linear-gradient(to top, var(--bg) 70%, transparent); }
+    .discard { margin-top: var(--s5); }
+  `,
 })
-export class AssessmentRunPage {
+export class AssessmentRunPage implements LeaveGuarded {
   protected readonly store = inject(AppStore);
   private readonly router = inject(Router);
   /** Id zaplanowanej jednostki */
@@ -74,6 +100,14 @@ export class AssessmentRunPage {
   protected readonly local = signal<Assessment | null>(null);
   private queue: Promise<void> = Promise.resolve();
 
+  /** Strażnik wyjścia: sesja testu w trakcie wymaga potwierdzenia (wyniki i tak są zapisane) */
+  canLeave(): boolean {
+    return !this.local() || this.partStatus() === 'completed' || this.partStatus() === 'postponed';
+  }
+  leaveMessage(): string {
+    return 'Test trwa. Wyniki są zapisane – możesz go wznowić z ekranu Dziś. Wyjść teraz?';
+  }
+
   protected readonly planned = computed(() => this.store.getPlanned(this.id()));
   protected readonly template = computed(() => TEMPLATES[this.planned()?.type ?? 'BASELINE']);
   protected readonly kindLabel = computed(() => {
@@ -84,6 +118,15 @@ export class AssessmentRunPage {
     const p = this.planned();
     if (!p?.part) return '';
     return p.type === 'CONTROL' ? 'Test pośredni 3 × 6a' : PART_LABELS[p.part];
+  });
+  protected readonly kind = computed(() => {
+    const t = this.planned()?.type;
+    return t === 'CONTROL' || t === 'FINAL' ? t : 'BASELINE';
+  });
+  protected readonly introStep = computed(() => {
+    const p = this.planned();
+    if (p?.part === 'strength' || p?.type === 'CONTROL') return 1;
+    return stepNumber(this.kind(), 'climbing');
   });
   protected readonly stored = computed(() => {
     const p = this.planned();

@@ -12,7 +12,7 @@ import { LiveClock } from '../../shared/live-clock';
 import { NumberStepper } from '../../shared/number-stepper';
 import { TestReadinessForm } from './readiness-form';
 import { TestFigure } from './test-figure';
-import { ScoreChip } from './score-chip';
+import { BaselineSteps, stepNumber } from './baseline-steps';
 
 type Mutator = (a: Assessment) => void;
 interface PullForm { added: number; reps: number; successful: boolean | null; technique: boolean | null; rpe: number | null; notes: string }
@@ -22,8 +22,8 @@ interface CoreForm { exercise: CoreExercise; hold: number | null; valid: boolean
 const STEPS: { key: StrengthStep; label: string }[] = [
   { key: 'readiness', label: 'Start' },
   { key: 'warmup', label: 'Rozgrzewka' },
-  { key: 'pullup', label: 'Pull-up' },
-  { key: 'finger', label: 'Palce' },
+  { key: 'pullup', label: 'Weighted Pull-up' },
+  { key: 'finger', label: 'Max Hang' },
   { key: 'core', label: 'Core' },
   { key: 'deadhang', label: 'Dead Hang' },
   { key: 'summary', label: 'Wynik' },
@@ -34,7 +34,7 @@ const SKIP_REASONS = ['Brak doświadczenia z tym ćwiczeniem', 'Brak sprzętu', 
 /** Dzień 1 – Strength Assessment (Test Mode) */
 @Component({
   selector: 'app-strength-session',
-  imports: [FormsModule, Scale, YesNo, RestTimer, LiveClock, NumberStepper, TestReadinessForm, TestFigure, ScoreChip],
+  imports: [FormsModule, Scale, YesNo, RestTimer, LiveClock, NumberStepper, TestReadinessForm, TestFigure, BaselineSteps],
   templateUrl: './strength-session.html',
   styleUrl: './assessment.scss',
 })
@@ -62,6 +62,18 @@ export class StrengthSession {
   protected readonly stepIndex = computed(() => STEPS.findIndex((x) => x.key === this.s().step));
   protected readonly bm = computed(() => this.s().readiness.bodyMassKg ?? 0);
   protected readonly locked = computed(() => this.s().status === 'completed');
+  /** Krok wskaźnika 01–05 (rozgrzewka należy do kroku 01, podsumowanie dnia 1 zamyka krok 05) */
+  protected readonly stepNo = computed(() => {
+    const k = this.s().step;
+    const key = k === 'warmup' ? 'readiness' : k === 'summary' ? 'deadhang' : k;
+    return stepNumber(this.assessment().kind, key);
+  });
+  protected readonly selectableSteps = computed(() => (this.s().readiness.confirmed ? ['readiness', 'pullup', 'finger', 'core', 'deadhang'] : []));
+  protected readonly nextLabel = computed(() => {
+    const i = this.stepIndex();
+    const n = STEPS[i + 1];
+    return n ? `Dalej · ${n.key === 'summary' ? 'Wynik dnia 1' : n.label}` : '';
+  });
 
   /* ---- formularze bieżącej próby (zatwierdzone próby trafiają od razu do bazy) ---- */
   protected readonly pull = signal<PullForm>({ added: 0, reps: 1, successful: null, technique: null, rpe: null, notes: '' });
@@ -78,6 +90,10 @@ export class StrengthSession {
 
   protected mutate(fn: (s: StrengthAssessment) => void) {
     this.update.emit((a) => fn(a.strength!));
+  }
+
+  protected selectStep(key: string) {
+    this.go(key === 'readiness' ? (this.s().readiness.confirmed ? 'warmup' : 'readiness') : (key as StrengthStep));
   }
 
   protected go(step: StrengthStep) {

@@ -1,198 +1,213 @@
 @let cs = c();
 @let st = step();
-<nav class="steps" aria-label="Etapy sesji">
-  <button type="button" [class.on]="st === 'readiness'" [class.done]="cs.readiness.confirmed" (click)="goStep('readiness')">Start</button>
-  <button type="button" [class.on]="st === 'warmup'" [class.done]="cs.warmupChecked.length === warmup.length" [disabled]="!cs.readiness.confirmed" (click)="goStep('warmup')">Rozgrzewka</button>
-  <button type="button" [class.on]="st === 'route'" [class.done]="routeOk()" [disabled]="!cs.readiness.confirmed" (click)="goStep('route')">Droga</button>
-  <button type="button" [class.on]="st === 'test'" [disabled]="!cs.readiness.confirmed || !routeOk()" (click)="goStep('test')">{{ cs.plannedAttempts }} × {{ cs.route.frenchGrade }}</button>
-</nav>
+<app-baseline-steps [kind]="assessment().kind" [current]="stepNo()" />
+
+<header class="step-head">
+  <div>
+    <h1 class="step-title">{{ stepTitle() }}</h1>
+    <p class="params">{{ cs.plannedAttempts }} × {{ cs.route.frenchGrade }} · ta sama droga · przerwa 3:00</p>
+  </div>
+  @if (st === 'test') {
+    <div class="score"><span class="metric">{{ stats().time.completedRoutes }}</span><span class="unit">/{{ cs.plannedAttempts }}</span></div>
+  }
+</header>
+
+@if (st !== 'test' || !cs.attempts.length) {
+  <nav class="substeps" aria-label="Przygotowanie">
+    <button type="button" [class.on]="st === 'readiness'" [class.done]="cs.readiness.confirmed" (click)="goStep('readiness')">Warunki</button>
+    <button type="button" [class.on]="st === 'warmup'" [class.done]="cs.warmupChecked.length === warmup.length" [disabled]="!cs.readiness.confirmed" (click)="goStep('warmup')">Rozgrzewka</button>
+    <button type="button" [class.on]="st === 'route'" [class.done]="routeOk()" [disabled]="!cs.readiness.confirmed" (click)="goStep('route')">Droga</button>
+    <button type="button" [class.on]="st === 'test'" [disabled]="!cs.readiness.confirmed || !routeOk()" (click)="goStep('test')">Próby</button>
+  </nav>
+}
 
 @switch (st) {
   @case ('readiness') {
-    <section class="card">
-      <h2>Dzień 2 – Climbing Performance</h2>
-      <app-test-figure kind="route" caption="Ta sama droga przy każdej próbie · przerwa dokładnie 3:00" />
-      <ol class="proto">
-        <li>Rozgrzewka wspinaczkowa 15–20 min.</li>
-        <li>{{ cs.plannedAttempts }} próby na tej samej drodze 6a (~13 m).</li>
-        <li>Czas każdej drogi i pompowanie po każdej próbie.</li>
-        <li>Recovery Curve – pompowanie 0, 1, 2 i 3 min po ostatniej drodze.</li>
+    <div class="instr-block">
+      <app-test-figure kind="route" />
+      <ol class="sequence">
+        <li><span class="num">a</span>Rozgrzewka 15–20 min</li>
+        <li><span class="num">b</span>{{ cs.plannedAttempts }} próby na tej samej drodze 6a (~13 m)</li>
+        <li><span class="num">c</span>Czas i pompowanie po każdej próbie</li>
+        <li><span class="num">d</span>Recovery Curve 0 · 1 · 2 · 3 min</li>
       </ol>
-      @if (assessment().kind !== 'CONTROL') { <p class="faint">Minimum 48 godzin po dniu siłowym.</p> }
-    </section>
+    </div>
+    @if (assessment().kind !== 'CONTROL') { <p class="instr">Minimum 48 godzin po dniu siłowym.</p> }
     <app-test-readiness [value]="cs.readiness" [hoursSinceStrength]="hoursSinceStrength()" (changed)="readinessChanged($event)" (confirm)="confirmReadiness()" (postpone)="postpone.emit('ból / choroba w ocenie warunków początkowych')" />
   }
 
   @case ('warmup') {
-    <section class="card">
-      <h2>Rozgrzewka · 15–20 min</h2>
-      <p class="muted">Rozgrzewka nie może doprowadzić do mocnego pompowania.</p>
-      <div class="checks">
-        @for (w of warmup; track w) {
-          <button type="button" class="check" [class.on]="cs.warmupChecked.includes(w)" (click)="toggleWarmup(w)">
-            <span class="box">{{ cs.warmupChecked.includes(w) ? '✓' : '' }}</span>{{ w }}
-          </button>
-        }
-      </div>
+    <p class="instr">15–20 min. Rozgrzewka nie może doprowadzić do mocnego pompowania.</p>
+    <div class="checks">
+      @for (w of warmup; track w) {
+        <button type="button" class="check" [class.on]="cs.warmupChecked.includes(w)" (click)="toggleWarmup(w)" [attr.aria-pressed]="cs.warmupChecked.includes(w)">
+          <span class="box">{{ cs.warmupChecked.includes(w) ? '✓' : '' }}</span>{{ w }}
+        </button>
+      }
+    </div>
+    <div class="step-foot">
       <button class="btn primary xl" type="button" (click)="goStep(routeOk() ? 'test' : 'route')" [disabled]="cs.warmupChecked.length < warmup.length">Dalej</button>
-    </section>
+    </div>
   }
 
   @case ('route') {
     @let r = cs.route;
-    <section class="card">
-      <h2>Droga testowa</h2>
-      @if (referenceRoute(); as ref) {
-        <div class="note" [class.info]="!routeDiffers()" [class.warn]="routeDiffers()">
-          @if (!routeDiffers()) { Ta sama droga co w teście odniesienia: <strong>{{ ref.name }}</strong>@if (ref.location) { · {{ ref.location }} }. }
-          @else { Droga różni się od testu odniesienia ({{ ref.name }}) – wynik będzie oznaczony jako mniej porównywalny.
-            <button class="btn sm" type="button" (click)="useReferenceRoute()">Przywróć tę samą drogę</button> }
-        </div>
+    @if (referenceRoute(); as ref) {
+      @if (!routeDiffers()) {
+        <p class="note info">Ta sama droga co w teście odniesienia: <strong>{{ ref.name }}</strong>@if (ref.location) { · {{ ref.location }} }.</p>
       } @else {
-        <p class="muted">Wybierz drogę 6a ok. 13 m – znaną i wcześniej ukończoną, bez szczególnie niebezpiecznych ruchów, najlepiej o zróżnicowanych chwytach. Przy kolejnych testach użyjesz tej samej drogi.</p>
+        <div class="note warn">Droga różni się od testu odniesienia ({{ ref.name }}) – wynik będzie mniej porównywalny.
+          <button class="btn sm" type="button" (click)="useReferenceRoute()">Przywróć tę samą drogę</button></div>
       }
-      <div class="grid-2">
-        <label class="field">Nazwa drogi<input [ngModel]="r.name" (ngModelChange)="setRoute('name', $event)" placeholder="np. Szara płyta" /></label>
-        <label class="field">Numer / identyfikator<input [ngModel]="r.routeId" (ngModelChange)="setRoute('routeId', $event)" placeholder="np. B-14" /></label>
-        <label class="field">Lokalizacja / ściana<input [ngModel]="r.location" (ngModelChange)="setRoute('location', $event)" /></label>
-        <label class="field">Trudność
-          <select [ngModel]="r.frenchGrade" (ngModelChange)="setRoute('frenchGrade', $event)">@for (g of grades; track g) { <option [value]="g">{{ g }}</option> }</select>
-        </label>
-        <label class="field">Długość (m)<input type="number" inputmode="decimal" [ngModel]="r.heightMeters" (ngModelChange)="setRoute('heightMeters', num($event) ?? 13)" /></label>
-        <label class="field">Zdjęcie / link (opcjonalnie)<input [ngModel]="r.imageUrl" (ngModelChange)="setRoute('imageUrl', $event)" placeholder="URL lub identyfikator" /></label>
-      </div>
-      <label class="field">Charakter ściany</label>
-      <div class="seg2" style="grid-template-columns: repeat(4, 1fr)">
-        @for (k of wallKeys; track k) { <button type="button" [class.on]="r.wallStyle === k" (click)="setRoute('wallStyle', k)">{{ wallLabels[k] }}</button> }
-      </div>
-      <label class="field">Sposób wspinania</label>
-      <div class="seg2">
-        @for (k of styleKeys; track k) { <button type="button" [class.on]="r.climbingStyle === k" (click)="setRoute('climbingStyle', k)">{{ styleLabels[k] }}</button> }
-      </div>
-      <label class="field">Droga znana i wcześniej ukończona?</label>
-      <app-yes-no [value]="r.knownAndSent" (valueChange)="setRoute('knownAndSent', !!$event)" />
-      @if (r.frenchGrade !== '6a') { <div class="note warn">Protokół zakłada drogę 6a. Inna trudność utrudni porównanie z normą testu.</div> }
-      <button class="btn primary xl" type="button" (click)="goStep('test')" [disabled]="!routeOk()">Zapisz drogę → test</button>
-    </section>
+    } @else {
+      <p class="instr">6a, ok. 13 m – znana i wcześniej ukończona, bez niebezpiecznych ruchów, najlepiej o zróżnicowanych chwytach. Przy kolejnych testach użyjesz tej samej drogi.</p>
+    }
+    <div class="grid-2 compact">
+      <label class="field">Nazwa drogi<input [ngModel]="r.name" (ngModelChange)="setRoute('name', $event)" placeholder="np. Szara płyta" /></label>
+      <label class="field">Numer / identyfikator<input [ngModel]="r.routeId" (ngModelChange)="setRoute('routeId', $event)" placeholder="np. B-14" /></label>
+      <label class="field">Lokalizacja / ściana<input [ngModel]="r.location" (ngModelChange)="setRoute('location', $event)" /></label>
+      <label class="field">Trudność
+        <select [ngModel]="r.frenchGrade" (ngModelChange)="setRoute('frenchGrade', $event)">@for (g of grades; track g) { <option [value]="g">{{ g }}</option> }</select>
+      </label>
+      <label class="field">Długość (m)<input type="number" inputmode="decimal" [ngModel]="r.heightMeters" (ngModelChange)="setRoute('heightMeters', num($event) ?? 13)" /></label>
+      <label class="field">Zdjęcie / link<input [ngModel]="r.imageUrl" (ngModelChange)="setRoute('imageUrl', $event)" placeholder="opcjonalnie" /></label>
+    </div>
+    <span class="eyebrow">Charakter ściany</span>
+    <div class="seg2 four">
+      @for (k of wallKeys; track k) { <button type="button" [class.on]="r.wallStyle === k" (click)="setRoute('wallStyle', k)">{{ wallLabels[k] }}</button> }
+    </div>
+    <span class="eyebrow">Sposób wspinania</span>
+    <div class="seg2">
+      @for (k of styleKeys; track k) { <button type="button" [class.on]="r.climbingStyle === k" (click)="setRoute('climbingStyle', k)">{{ styleLabels[k] }}</button> }
+    </div>
+    <span class="eyebrow">Droga znana i wcześniej ukończona</span>
+    <app-yes-no [value]="r.knownAndSent" (valueChange)="setRoute('knownAndSent', !!$event)" />
+    @if (r.frenchGrade !== '6a') { <p class="note warn">Protokół zakłada drogę 6a – inna trudność utrudni porównanie.</p> }
+    <div class="step-foot">
+      <button class="btn primary xl" type="button" (click)="goStep('test')" [disabled]="!routeOk()">Zapisz drogę · próby</button>
+    </div>
   }
 
   @case ('test') {
     @let ph = phase();
-    <section class="card flat">
-      <div class="spread">
-        <div><div class="eyebrow">{{ cs.route.name }} · {{ cs.route.frenchGrade }}</div>
-          <strong>Ukończone: {{ stats().time.completedRoutes }}/{{ cs.plannedAttempts }}</strong></div>
-        <div class="row">
-          @for (a of cs.attempts; track a.index) {
-            <span class="badge plain" [class.done]="a.completed === true" [class.skipped]="a.completed === false" [class.moved]="a.status === 'invalid'">
-              {{ a.status === 'invalid' ? '⊘' : a.completed ? '✓' : a.completed === false ? '✗' : '…' }}{{ a.ascentTimeSeconds != null ? ' ' + fmt(a.ascentTimeSeconds) : '' }}
-            </span>
-          }
-        </div>
-      </div>
-    </section>
+    <ol class="tally" aria-label="Próby">
+      @for (a of cs.attempts; track a.index) {
+        <li [class.sent]="a.completed === true" [class.fell]="a.completed === false && a.status !== 'invalid'" [class.void]="a.status === 'invalid'">
+          <span class="i num">{{ a.index }}</span>
+          <span class="t num">{{ a.ascentTimeSeconds != null ? fmt(a.ascentTimeSeconds) : '…' }}</span>
+          <span class="s">{{ a.status === 'invalid' ? 'nieważna' : a.completed ? 'top' : a.completed === false ? 'odp.' : 'w toku' }}</span>
+        </li>
+      }
+      @for (n of pendingSlots(); track n) { <li class="todo"><span class="i num">{{ n }}</span><span class="t num">—</span><span class="s">plan</span></li> }
+    </ol>
 
     @switch (ph) {
       @case ('next_attempt') {
-        <section class="card phase">
-          <div class="eyebrow">Próba {{ nextNumber() }} z {{ cs.plannedAttempts }}</div>
+        <section class="player">
+          <span class="kicker">Próba {{ nextNumber() < 10 ? '0' + nextNumber() : nextNumber() }} / {{ cs.plannedAttempts < 10 ? '0' + cs.plannedAttempts : cs.plannedAttempts }}</span>
+          <div class="route-id"><span class="grade">{{ cs.route.frenchGrade }}</span><span class="meta">{{ cs.route.heightMeters }} m · {{ cs.route.name }}</span></div>
           @if (cs.restStartedAt; as rs) {
-            <p class="muted">Przerwa – dokładnie 3:00 (od powrotu na ziemię do startu)</p>
-            <app-live-clock [start]="rs" mode="down" [seconds]="cs.restSeconds" />
+            <div class="phase-label">Przerwa</div>
+            <app-live-clock [start]="rs" mode="down" [seconds]="cs.restSeconds" style="--clock-size: 5.5rem" />
+            <p class="eyebrow">od powrotu na ziemię do pierwszego ruchu</p>
           } @else if (cs.attempts.length) {
-            <button class="btn big block" type="button" (click)="onGround()">Jestem na ziemi – start przerwy 3:00</button>
+            <button class="btn big block" type="button" (click)="onGround()">Na ziemi · start przerwy 3:00</button>
           } @else {
-            <p class="muted">Po rozgrzewce: 5 minut odpoczynku przed pierwszą próbą.</p>
+            <p class="instr">Po rozgrzewce: 5 minut odpoczynku przed pierwszą próbą.</p>
           }
-          <p class="faint">Timer drogi startuje przy pierwszym ruchu z pozycji startowej.</p>
-          <button class="btn primary block big-go" type="button" (click)="startAttempt()">START</button>
         </section>
-        @if (cs.attempts.length && !locked()) { <button class="btn ghost block" type="button" (click)="endEarly()">Zakończ test wcześniej (narastające zmęczenie)</button> }
+        <div class="step-foot">
+          <button class="btn primary block big-go" type="button" (click)="startAttempt()">Start</button>
+          <p class="eyebrow center">Timer od pierwszego ruchu z pozycji startowej</p>
+        </div>
+        @if (cs.attempts.length && !locked()) { <button class="btn ghost block" type="button" (click)="endEarly()">Zakończ test wcześniej · zmęczenie</button> }
       }
 
       @case ('climbing') {
-        <section class="card phase">
-          <div class="eyebrow">Próba {{ nextNumber() }} z {{ cs.plannedAttempts }} – wspinanie</div>
-          <app-live-clock [start]="current()!.startedAt" [decimals]="true" style="--clock-size: 4rem" />
-          <p class="faint">Zatrzymaj po kontrolowanym złapaniu końcowego chwytu – bez czasu opuszczania.</p>
-          <button class="btn primary block big-go" type="button" (click)="stopAttempt(true)">TOP – STOP</button>
-          <button class="btn danger big block" type="button" (click)="stopAttempt(false)">Odpadnięcie / zejście</button>
+        <section class="player">
+          <span class="kicker">Próba {{ nextNumber() < 10 ? '0' + nextNumber() : nextNumber() }} / {{ cs.plannedAttempts < 10 ? '0' + cs.plannedAttempts : cs.plannedAttempts }} · wspinanie</span>
+          <div class="route-id"><span class="grade">{{ cs.route.frenchGrade }}</span><span class="meta">{{ cs.route.heightMeters }} m</span></div>
+          <app-live-clock class="live" [start]="current()!.startedAt" [decimals]="true" style="--clock-size: 5rem" />
+          <p class="eyebrow">Stop po kontrolowanym złapaniu końcowego chwytu – bez opuszczania</p>
         </section>
-        <button class="btn ghost block" type="button" (click)="removeLastAttempt()">Start przez pomyłkę – usuń próbę</button>
+        <div class="step-foot">
+          <button class="btn primary block big-go" type="button" (click)="stopAttempt(true)">Top · stop</button>
+          <button class="btn danger big block" type="button" (click)="stopAttempt(false)">Odpadnięcie / zejście</button>
+        </div>
+        <button class="btn ghost block" type="button" (click)="removeLastAttempt()">Start przez pomyłkę · usuń próbę</button>
       }
 
       @case ('form') {
         @let a = current()!;
         @if (!isLastValid() || a.completed === false) {
           @if (cs.restStartedAt; as rs) {
-            <section class="card flat phase">
-              <span class="eyebrow">Przerwa do kolejnej próby</span>
-              <app-live-clock [start]="rs" mode="down" [seconds]="cs.restSeconds" style="--clock-size: 2.4rem" />
-            </section>
+            <div class="inline-timer"><span class="eyebrow">Przerwa</span><app-live-clock [start]="rs" mode="down" [seconds]="cs.restSeconds" style="--clock-size: 2.2rem" /></div>
           } @else if (a.failReason !== 'fatigue') {
-            <button class="btn big block" type="button" (click)="onGround()">Jestem na ziemi – start przerwy 3:00</button>
+            <button class="btn big block" type="button" (click)="onGround()">Na ziemi · start przerwy 3:00</button>
           }
         }
         @if (cs.recoveryStartedAt; as rec) {
-          <section class="card flat phase">
-            <span class="eyebrow">Recovery Curve – zegar od końca drogi</span>
-            <app-live-clock [start]="rec" style="--clock-size: 2.4rem" />
-            <p class="faint">Odpoczywaj w rozluźnionej pozycji. Pomiar 0 s = pompowanie poniżej.</p>
-          </section>
+          <div class="inline-timer"><span class="eyebrow">Recovery · od końca drogi</span><app-live-clock [start]="rec" style="--clock-size: 2.2rem" /></div>
         }
-        <section class="card">
-          <h2>Próba {{ nextNumber() }} – szybki zapis</h2>
+        <section class="panel">
+          <span class="kicker">Próba {{ nextNumber() }} · szybki zapis</span>
           <label class="field">Czas przejścia (s)
             <input type="number" inputmode="decimal" step="0.1" [ngModel]="a.ascentTimeSeconds" (ngModelChange)="attemptSet('ascentTimeSeconds', num($event))" />
           </label>
-          <label class="field">1. Czy ukończyłeś drogę?</label>
-          <app-yes-no [value]="a.completed" (valueChange)="attemptSet('completed', $event)" yes="Ukończona" no="Nie" />
+          <span class="eyebrow">01 · Ukończona?</span>
+          <app-yes-no [value]="a.completed" (valueChange)="attemptSet('completed', $event)" yes="Ukończona" no="Nie" label="Ukończona" />
           @if (a.completed === false) {
-            <label class="field">Powód</label>
+            <span class="eyebrow">Powód</span>
             <div class="seg2">
               <button type="button" [class.on]="a.failReason === 'fatigue'" (click)="attemptSet('failReason', 'fatigue')">Narastające zmęczenie</button>
-              <button type="button" [class.on]="a.failReason === 'non_effort'" (click)="attemptSet('failReason', 'non_effort')">Inny (np. asekuracja) – próba nieważna</button>
+              <button type="button" [class.on]="a.failReason === 'non_effort'" (click)="attemptSet('failReason', 'non_effort')">Inny · próba nieważna</button>
             </div>
-            @if (a.failReason === 'fatigue') { <p class="note warn">Test zostanie zakończony – nie wymuszamy pozostałych prób.</p> }
-            @if (a.failReason === 'non_effort') { <p class="note info">Próba nieważna – nie liczy się do wyniku. Po przerwie powtórz ją.</p> }
-            <label class="field">Miejsce odpadnięcia / ostatni wykonany przechwyt<input [ngModel]="a.failurePoint" (ngModelChange)="attemptSet('failurePoint', $event)" /></label>
+            @if (a.failReason === 'fatigue') { <p class="note warn">Test zostanie zakończony – bez wymuszania pozostałych prób.</p> }
+            @if (a.failReason === 'non_effort') { <p class="note info">Próba nieważna (np. asekuracja) – po przerwie powtórz ją.</p> }
+            <label class="field">Miejsce odpadnięcia / ostatni przechwyt<input [ngModel]="a.failurePoint" (ngModelChange)="attemptSet('failurePoint', $event)" /></label>
           }
-          <label class="field">2. RPE (1–10)</label>
-          <app-scale [min]="1" [max]="10" [hotFrom]="9" [value]="a.rpe" (valueChange)="attemptSet('rpe', $event)" low="lekko" high="maksimum" />
-          <label class="field">3. Pompowanie przedramion (0–10)</label>
-          <app-scale [min]="0" [max]="10" [hotFrom]="7" [value]="a.forearmPump" (valueChange)="attemptSet('forearmPump', $event)" low="brak" high="skrajne" />
-          @if (a.forearmPump != null) { <p class="faint">{{ a.forearmPump }} – {{ pumpText(a.forearmPump) }}</p> }
-          <label class="field">4. Czy technika pogorszyła się pod koniec?</label>
-          <app-yes-no [value]="a.techniqueDegraded" (valueChange)="attemptSet('techniqueDegraded', $event)" />
-          <label class="field">5. Problem z konkretnym przechwytem?</label>
-          <app-yes-no [value]="a.problemMove" (valueChange)="attemptSet('problemMove', $event)" />
-          <input [ngModel]="a.notes" (ngModelChange)="attemptSet('notes', $event)" placeholder="6. Notatka (opcjonalnie)" aria-label="Notatka" />
-          <button class="btn primary xl" type="button" (click)="saveAttempt()" [disabled]="!canSaveAttempt()">Zapisz próbę</button>
+          <span class="eyebrow">02 · RPE</span>
+          <app-scale [min]="1" [max]="10" [hotFrom]="9" [value]="a.rpe" (valueChange)="attemptSet('rpe', $event)" low="lekko" high="maksimum" label="RPE" />
+          <span class="eyebrow">03 · Pompowanie przedramion</span>
+          <app-scale [min]="0" [max]="10" [hotFrom]="7" [value]="a.forearmPump" (valueChange)="attemptSet('forearmPump', $event)" low="brak" high="skrajne" label="Pompowanie" />
+          @if (a.forearmPump != null) { <p class="params">{{ a.forearmPump }} · {{ pumpText(a.forearmPump) }}</p> }
+          <span class="eyebrow">04 · Technika pogorszyła się pod koniec?</span>
+          <app-yes-no [value]="a.techniqueDegraded" (valueChange)="attemptSet('techniqueDegraded', $event)" label="Technika" />
+          <span class="eyebrow">05 · Problem z konkretnym przechwytem?</span>
+          <app-yes-no [value]="a.problemMove" (valueChange)="attemptSet('problemMove', $event)" label="Przechwyt" />
+          <input [ngModel]="a.notes" (ngModelChange)="attemptSet('notes', $event)" placeholder="06 · Notatka (opcjonalnie)" aria-label="Notatka" />
         </section>
+        <div class="step-foot">
+          <button class="btn primary xl" type="button" (click)="saveAttempt()" [disabled]="!canSaveAttempt()">Zapisz próbę</button>
+        </div>
       }
 
       @case ('recovery') {
-        <section class="card phase">
-          <div class="eyebrow">Recovery Curve</div>
-          <app-live-clock [start]="cs.recoveryStartedAt" style="--clock-size: 3.4rem" />
+        <section class="player">
+          <span class="kicker">Od końca ostatniej drogi</span>
+          <app-live-clock class="live" [start]="cs.recoveryStartedAt" style="--clock-size: 5rem" />
           @if (duePoint() != null) {
-            <p><strong>Teraz: pomiar {{ duePoint()! / 60 }} min</strong></p>
+            <p class="due">Teraz · pomiar {{ duePoint()! / 60 }} min</p>
           } @else if (nextPoint() != null) {
-            <p class="muted">Następny pomiar: {{ nextPoint()! / 60 }} min</p>
+            <p class="eyebrow">Następny pomiar: {{ nextPoint()! / 60 }} min</p>
           }
-          <p class="faint">Bez dodatkowych zwisów, ściskania przedmiotów i intensywnego rozciągania. Ta sama rozluźniona pozycja.</p>
+          <p class="instr">Bez dodatkowych zwisów, ściskania przedmiotów i intensywnego rozciągania. Ta sama rozluźniona pozycja.</p>
         </section>
-        @for (m of cs.recoveryCurve; track m.elapsedSeconds) {
-          <section class="card" [class.alert]="duePoint() === m.elapsedSeconds">
-            <div class="card-title"><h3>{{ m.elapsedSeconds === 0 ? '0 s – bezpośrednio po drodze' : m.elapsedSeconds / 60 + ' min' }}</h3>
-              <span class="tag">{{ m.forearmPump != null ? m.forearmPump + '/10' : recElapsed() + 2 < m.elapsedSeconds ? 'za ' + fmt(Math.ceil(m.elapsedSeconds - recElapsed())) : 'teraz' }}</span></div>
-            <app-scale [min]="0" [max]="10" [hotFrom]="7" [value]="m.forearmPump" (valueChange)="setRecovery(m.elapsedSeconds, $event)" low="brak" high="skrajne" />
-          </section>
-        }
-        <details class="card proto-d">
+        <div class="recov-list">
+          @for (m of cs.recoveryCurve; track m.elapsedSeconds) {
+            <section class="rpoint" [class.due]="duePoint() === m.elapsedSeconds" [class.filled]="m.forearmPump != null">
+              <div class="spread">
+                <span class="kicker num">{{ m.elapsedSeconds === 0 ? '0:00 · po drodze' : m.elapsedSeconds / 60 + ':00' }}</span>
+                <span class="num params">{{ m.forearmPump != null ? m.forearmPump + '/10' : recElapsed() + 2 < m.elapsedSeconds ? 'za ' + fmt(Math.ceil(m.elapsedSeconds - recElapsed())) : 'teraz' }}</span>
+              </div>
+              <app-scale [min]="0" [max]="10" [hotFrom]="7" [value]="m.forearmPump" (valueChange)="setRecovery(m.elapsedSeconds, $event)" low="brak" high="skrajne" [label]="'Pompowanie ' + m.elapsedSeconds + ' s'" />
+            </section>
+          }
+        </div>
+        <details class="protocol">
           <summary>Skala pompowania</summary>
           <ul class="scale-legend">@for (p of pumpScale; track p.range) { <li><b>{{ p.range }}</b> {{ p.text }}</li> }</ul>
-          <p class="faint">To standaryzowana ocena subiektywna, nie obiektywny pomiar fizjologiczny.</p>
+          <p class="params">Standaryzowana ocena subiektywna, nie pomiar fizjologiczny.</p>
         </details>
         <button class="btn ghost block" type="button" (click)="restartRecovery()">Uruchom pomiar regeneracji od nowa</button>
       }
@@ -200,44 +215,43 @@
       @case ('done') {
         @let t = stats().time;
         @let rc = stats().recovery;
-        <section class="card hero">
-          <div class="eyebrow">Wynik sesji</div>
-          <div class="grid-3">
-            <div class="stat"><span class="value">{{ t.completedRoutes }}/{{ cs.plannedAttempts }}</span><span class="label">ukończone drogi</span></div>
-            <div class="stat"><span class="value">{{ fmt(t.averageTimeSeconds) }}</span><span class="label">średni czas</span></div>
-            <div class="stat"><span class="value">{{ t.timeChangePercent != null ? (t.timeChangePercent > 0 ? '+' : '') + t.timeChangePercent + '%' : '–' }}</span><span class="label">zmiana czasu 1. → ost.</span></div>
-          </div>
-          <p>Recovery: @for (p of rc.points; track p.elapsedSeconds) { {{ p.pump ?? '–' }}/10{{ $last ? '' : ' → ' }} }</p>
-          <p class="muted">Spadek o 50%: {{ rc.halfRecovery === 'reached' ? 'po ' + rc.halfRecoverySeconds! / 60 + ' min' : rc.halfRecovery === 'not_reached' ? 'nie osiągnięto w okresie obserwacji' : 'nie dotyczy' }}</p>
-        </section>
-        <section class="card">
-          <label class="field">Notatki z sesji (opcjonalnie)<textarea [ngModel]="cs.notes" (ngModelChange)="setNotes($event)" [disabled]="locked()"></textarea></label>
-          @if (!locked()) {
-            <button class="btn primary xl" type="button" (click)="finish()">Zakończ sesję i pokaż raport</button>
-          } @else {
-            <button class="btn" type="button" (click)="reopen()">Otwórz sesję ponownie (poprawka)</button>
+        <dl class="scoreboard">
+          <div><dt>Ukończone</dt><dd><span class="metric">{{ t.completedRoutes }}</span><span class="unit">/{{ cs.plannedAttempts }}</span></dd></div>
+          <div><dt>Średni czas</dt><dd><span class="metric small-m">{{ fmt(t.averageTimeSeconds) }}</span></dd></div>
+          <div><dt>Zmiana 1. → ost.</dt><dd><span class="metric small-m">{{ t.timeChangePercent != null ? (t.timeChangePercent > 0 ? '+' : '') + t.timeChangePercent : '–' }}</span><span class="unit">%</span></dd></div>
+          <div><dt>Spadek 50%</dt><dd><span class="params">{{ rc.halfRecovery === 'reached' ? 'po ' + rc.halfRecoverySeconds! / 60 + ' min' : rc.halfRecovery === 'not_reached' ? 'nie osiągnięto w okresie obserwacji' : 'nie dotyczy' }}</span></dd></div>
+        </dl>
+        <div class="recov">
+          @for (p of rc.points; track p.elapsedSeconds) {
+            <div class="slot"><span class="eyebrow">{{ p.elapsedSeconds / 60 }} min</span><div class="v">{{ p.pump ?? '–' }}</div></div>
           }
-        </section>
+        </div>
+        <label class="field">Notatki z sesji<textarea [ngModel]="cs.notes" (ngModelChange)="setNotes($event)" [disabled]="locked()" placeholder="opcjonalnie"></textarea></label>
+        <div class="step-foot">
+          @if (!locked()) {
+            <button class="btn primary xl" type="button" (click)="finish()">Zakończ sesję · raport</button>
+          } @else {
+            <button class="btn big block" type="button" (click)="reopen()">Otwórz sesję ponownie (poprawka)</button>
+          }
+        </div>
       }
     }
 
-    @if (cs.attempts.length && (ph === 'next_attempt' || ph === 'recovery' || ph === 'done')) {
-      <section class="card">
-        <h3>Próby</h3>
-        <table class="table">
-          <thead><tr><th>#</th><th class="num">Czas</th><th>Wynik</th><th class="num">RPE</th><th class="num">Pompa</th><th class="num">Przerwa</th></tr></thead>
-          <tbody>
-            @for (a of cs.attempts; track a.index) {
-              <tr>
-                <td>{{ a.index }}</td><td class="num">{{ fmt(a.ascentTimeSeconds) }}</td>
-                <td>{{ a.status === 'invalid' ? 'nieważna' : a.completed ? 'ukończona' : 'odpadnięcie' }}@if (a.failurePoint) { <small> · {{ a.failurePoint }}</small> }</td>
-                <td class="num">{{ a.rpe ?? '–' }}</td><td class="num">{{ a.forearmPump ?? '–' }}</td><td class="num">{{ fmt(a.restBeforeSeconds) }}</td>
-              </tr>
-            }
-          </tbody>
-        </table>
-        @if (ph !== 'done' && !locked() && current()?.saved) { <button class="btn ghost sm" type="button" (click)="editAttempt(currentIndex())">Popraw ostatnią próbę</button> }
-      </section>
+    @if (cs.attempts.length && (ph === 'recovery' || ph === 'done')) {
+      <ol class="attempts">
+        @for (a of cs.attempts; track a.index) {
+          <li [class.fail]="a.status === 'invalid'">
+            <span class="i num">{{ a.index }}</span>
+            <span class="v num">{{ fmt(a.ascentTimeSeconds) }}</span>
+            <span class="r">{{ a.status === 'invalid' ? 'nieważna' : a.completed ? 'ukończona' : 'odpadnięcie' }}</span>
+            <span class="num faint">P{{ a.forearmPump ?? '–' }} · RPE {{ a.rpe ?? '–' }}</span>
+            <span></span>
+          </li>
+        }
+      </ol>
+    }
+    @if (ph === 'next_attempt' && !locked() && current()?.saved) {
+      <button class="btn ghost block" type="button" (click)="editAttempt(currentIndex())">Popraw ostatnią próbę</button>
     }
   }
 }

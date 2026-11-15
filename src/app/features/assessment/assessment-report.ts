@@ -11,7 +11,8 @@ import { CORE_LABELS, DEAD_HANG_END_LABELS, KIND_LABELS, PART_LABELS, STYLE_LABE
 import { demoAssessments } from '../../core/logic/assessment/demo';
 import { ChartView } from '../../shared/chart';
 import { DatePlPipe } from '../../shared/pipes';
-import { ScoreChip } from './score-chip';
+import { BaselineSteps, stepsFor } from './baseline-steps';
+import { Icon } from '../../shared/icon';
 import { baselineVsRetestChart, pumpByAttemptChart, recoveryCurveChart, routeTimingChart } from './assessment-charts';
 
 const r1 = (n: number | null | undefined) => (n == null ? '–' : String(Math.round(n * 10) / 10));
@@ -19,7 +20,7 @@ const r1 = (n: number | null | undefined) => (n == null ? '–' : String(Math.ro
 /** Raport Baseline / Retest / testu pośredniego + porównanie Baseline vs Retest */
 @Component({
   selector: 'app-assessment-report',
-  imports: [RouterLink, FormsModule, ChartView, DatePlPipe, ScoreChip],
+  imports: [RouterLink, FormsModule, ChartView, DatePlPipe, BaselineSteps, Icon],
   templateUrl: './assessment-report.html',
   styleUrl: './assessment.scss',
 })
@@ -91,6 +92,26 @@ export class AssessmentReportPage {
   protected readonly pumpChart = computed(() => pumpByAttemptChart(this.overlay()));
   protected readonly recoveryChart = computed(() => recoveryCurveChart(this.overlay()));
   protected readonly vsChart = computed(() => (this.counterpart() && this.a() ? baselineVsRetestChart(this.counterpart()!, this.a()!) : null));
+
+  /** Krok wskaźnika: raport po zakończeniu, inaczej najbliższa niewykonana sesja */
+  protected readonly reportStep = computed(() => {
+    const a = this.a();
+    if (!a) return 1;
+    const n = stepsFor(a.kind).length;
+    if (a.status === 'completed') return n;
+    if (a.kind === 'CONTROL') return 2;
+    return a.strength?.status === 'completed' ? 6 : 1;
+  });
+
+  protected readonly groupLabels: Record<string, string> = {
+    finger: 'Finger Strength', pulling: 'Pulling Strength', core: 'Core', endurance: 'Dead Hang', nine_c: '9c', climbing: 'Climbing Performance', recovery: 'Recovery Curve',
+  };
+  protected readonly comparisonGroups = computed(() => {
+    const c = this.comparison();
+    if (!c) return [];
+    const order = ['finger', 'pulling', 'core', 'endurance', 'nine_c', 'climbing', 'recovery'];
+    return order.map((g) => ({ key: g, label: this.groupLabels[g], rows: c.rows.filter((r) => r.group === g) })).filter((g) => g.rows.length);
+  });
 
   protected readonly canGeneratePlan = computed(() => {
     const a = this.a();
