@@ -1,0 +1,140 @@
+@let p = planned();
+@let t = template();
+<div class="page">
+  @if (!p || !t) {
+    <div class="card"><h2>Nie znaleziono testu</h2><a class="btn" routerLink="/plan">Wróć do planu</a></div>
+  } @else {
+    <header class="page-head">
+      <div>
+        <div class="eyebrow">{{ typeName() }}</div>
+        <h1 class="caps">{{ t.name }}</h1>
+      </div>
+      <a class="btn sm" routerLink="/">Wyjdź</a>
+    </header>
+
+    @if (!draft()) {
+      <section class="card">
+        <p class="muted">{{ t.goal }}</p>
+        <h3>Procedura</h3>
+        <ol>
+          <li>Rozgrzewka 15–20 minut.</li>
+          <li>Wybierz trzy zbliżone trudnością drogi 6a – najlepiej ok. 13 m i o podobnym charakterze.</li>
+          <li>Wspinaj się kolejno po każdej drodze.</li>
+          <li>Zachowaj dokładnie 3 minuty odpoczynku między drogami (timer w aplikacji).</li>
+          <li>Nie wspinaj się do upadku ani przez ból.</li>
+          <li>Po każdej drodze zapisz: ukończenie, RPE, pompowanie, czy technika zaczęła się pogarszać.</li>
+        </ol>
+        @if (kind() !== 'BASELINE') {
+          <div class="note info">
+            Wykonaj test w możliwie identycznych warunkach jak test początkowy@if (baselineGrades()) { (drogi: {{ baselineGrades() }}) }.
+            @if (kind() === 'CONTROL') { Test jest krótki i nie zastępuje treningu – po nim wykonaj zaplanowany trening B. }
+          </div>
+        }
+        @if (store.todayAssessment(); as a) {
+          @if (a.level === 'rest') {
+            <div class="note bad"><strong>{{ a.title }}.</strong> Wynik testu przy bólu lub dużym zmęczeniu nie będzie miarodajny. Rozważ przełożenie testu.</div>
+          }
+        }
+        <button class="btn primary xl block" type="button" (click)="start()">Rozpocznij test</button>
+      </section>
+    } @else {
+      @let d = draft()!;
+      <section class="card">
+        <button type="button" class="btn block big" [class.primary]="!d.warmupDone" (click)="set('warmupDone', !d.warmupDone)">
+          {{ d.warmupDone ? '✓ Rozgrzewka 15–20 min zrobiona' : 'Rozgrzewka 15–20 min – oznacz jako zrobioną' }}
+        </button>
+      </section>
+
+      <div class="seg">
+        @for (r of d.routes; track r.order) {
+          <button type="button" [class.on]="d.step === $index" [class.done]="r.completed != null" (click)="set('step', $index)">Droga {{ r.order }}</button>
+        }
+        <button type="button" [class.on]="d.step === 3" (click)="set('step', 3)">Wynik</button>
+      </div>
+
+      @if (d.step < 3) {
+        @let i = d.step;
+        @let r = d.routes[i];
+        <section class="card">
+          <div class="card-title">
+            <h2>Droga {{ r.order }}/3</h2>
+            <select [ngModel]="r.grade" (ngModelChange)="route(i, 'grade', $event)" aria-label="Wycena" style="max-width: 100px">
+              @for (g of grades; track g) { <option [value]="g">{{ g }}</option> }
+            </select>
+          </div>
+          <label class="field">Czy droga została ukończona?</label>
+          <app-yes-no [value]="r.completed" (valueChange)="route(i, 'completed', $event)" yes="Ukończona" no="Nie / odpadnięcie" />
+          <label class="field">RPE (1–10)</label>
+          <app-scale [min]="1" [max]="10" [hotFrom]="9" [value]="r.rpe" (valueChange)="route(i, 'rpe', $event)" low="lekko" high="maksimum" />
+          <label class="field">Pompowanie przedramion (0–10)</label>
+          <app-scale [min]="0" [max]="10" [hotFrom]="8" [value]="r.pump" (valueChange)="route(i, 'pump', $event)" low="brak" high="skrajne" />
+          <label class="field">Czy technika zaczęła się pogarszać?</label>
+          <app-yes-no [value]="r.techniqueDegraded" (valueChange)="route(i, 'techniqueDegraded', $event)" />
+          <label class="field">Uwagi
+            <input [ngModel]="r.notes" (ngModelChange)="route(i, 'notes', $event)" placeholder="np. zacisk na cruxie" />
+          </label>
+        </section>
+        @if (i < 2) {
+          <app-rest-timer [seconds]="180" label="Odpoczynek – dokładnie 3 minuty" />
+          <button class="btn primary xl block" type="button" (click)="set('step', i + 1)" [disabled]="r.completed == null">Droga {{ i + 2 }} →</button>
+        } @else {
+          <button class="btn primary xl block" type="button" (click)="set('step', 3)" [disabled]="r.completed == null">Dalej →</button>
+        }
+      } @else {
+        @if (kind() !== 'BASELINE') {
+          <section class="card">
+            <div class="card-title">
+              <h3>Crux (opcjonalnie)</h3>
+              <label class="row"><input type="checkbox" [ngModel]="d.withCrux" (ngModelChange)="set('withCrux', $event)" /> mierz</label>
+            </div>
+            @if (d.withCrux) {
+              <p class="faint">Kilka prób znanego, trudnego przechwytu / sekwencji – ten sam crux w każdym teście.</p>
+              <div class="grid-2">
+                <div class="stack-sm"><span class="eyebrow">Próby</span>
+                  <div class="stepper"><button class="btn big" type="button" (click)="crux('attempts', -1)">−</button><span class="num">{{ d.crux.attempts }}</span><button class="btn big" type="button" (click)="crux('attempts', 1)">+</button></div>
+                </div>
+                <div class="stack-sm"><span class="eyebrow">Udane</span>
+                  <div class="stepper"><button class="btn big" type="button" (click)="crux('sent', -1)">−</button><span class="num">{{ d.crux.sent }}</span><button class="btn big" type="button" (click)="crux('sent', 1)">+</button></div>
+                </div>
+              </div>
+            }
+          </section>
+          <section class="card">
+            <div class="card-title">
+              <h3>Zwis kontrolny (opcjonalnie)</h3>
+              <label class="row"><input type="checkbox" [ngModel]="d.withHang" (ngModelChange)="set('withHang', $event)" /> mierz</label>
+            </div>
+            @if (d.withHang) {
+              <p class="faint">Jeden zwis na tej samej krawądce co poprzednio. Porównujemy tylko wyniki z tej samej krawądki i uchwytu.</p>
+              <div class="grid-2">
+                <label class="field">Krawądka<input [ngModel]="d.hang.edge" (ngModelChange)="hang('edge', $event)" /></label>
+                <label class="field">Uchwyt
+                  <select [ngModel]="d.hang.grip" (ngModelChange)="hang('grip', $event)">
+                    @for (g of grips; track g) { <option [value]="g">{{ gripLabels[g] }}</option> }
+                  </select>
+                </label>
+                <label class="field">Czas (s)<input type="number" inputmode="numeric" [ngModel]="d.hang.hangSec" (ngModelChange)="hang('hangSec', +$event)" /></label>
+                <label class="field">Obciążenie +kg<input type="number" inputmode="decimal" step="0.5" [ngModel]="d.hang.addedKg" (ngModelChange)="hang('addedKg', +$event || 0)" /></label>
+                <label class="field">Odciążenie −kg<input type="number" inputmode="decimal" step="0.5" [ngModel]="d.hang.assistKg" (ngModelChange)="hang('assistKg', +$event || 0)" /></label>
+              </div>
+              <label class="field">RPE zwisu</label>
+              <app-scale [min]="1" [max]="10" [hotFrom]="9" [value]="d.hang.rpe" (valueChange)="hang('rpe', $event)" />
+            }
+          </section>
+        }
+
+        <section class="card">
+          <h3>Subiektywna rezerwa siłowa po teście</h3>
+          <app-scale [min]="1" [max]="5" [value]="d.reserve" (valueChange)="set('reserve', $event)" low="na limicie" high="duży zapas" />
+          @if (d.reserve) { <p class="muted">{{ reserveLabels[d.reserve] }}</p> }
+          <label class="field">Notatki (warunki, drogi, samopoczucie)
+            <textarea [ngModel]="d.notes" (ngModelChange)="set('notes', $event)"></textarea>
+          </label>
+          @if (!canSave()) { <p class="note warn">Uzupełnij ukończenie wszystkich trzech dróg.</p> }
+          <button class="btn primary xl block" type="button" (click)="finish()" [disabled]="!canSave() || busy()">Zapisz test i pokaż raport</button>
+        </section>
+      }
+      <button class="btn ghost block" type="button" (click)="discard()">Porzuć test</button>
+    }
+  }
+</div>

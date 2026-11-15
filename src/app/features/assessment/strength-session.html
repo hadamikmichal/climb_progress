@@ -1,0 +1,380 @@
+@let st = s();
+@let res = results();
+<nav class="steps" aria-label="Etapy sesji">
+  @for (x of steps; track x.key; let i = $index) {
+    <button type="button" [class.on]="st.step === x.key" [class.done]="i < stepIndex()" [disabled]="!canOpen(i)" (click)="go(x.key)">{{ x.label }}</button>
+  }
+</nav>
+
+@if (locked() && st.step !== 'summary') {
+  <div class="note info">Sesja zakończona – wyniki są zapisane. Aby poprawić pomiar, otwórz ją ponownie w kroku „Wynik”.</div>
+}
+
+@switch (st.step) {
+  <!-- ================= WARUNKI POCZĄTKOWE ================= -->
+  @case ('readiness') {
+    <section class="card">
+      <h2>Dzień 1 – Strength Assessment</h2>
+      <ol class="proto">
+        <li>Rozgrzewka (10–15 min).</li>
+        <li>Weighted Pull-up 1RM.</li>
+        <li>Max Finger Strength – 20 mm / 5 s.</li>
+        <li>Core Strength – L-sit / Front Lever.</li>
+        <li>Dead Hang – drążek.</li>
+      </ol>
+      <p class="faint">Minimum 48 h bez ciężkiego wspinania i treningu palców przed sesją. Nie wykonuj testu podczas choroby, urazu lub wyraźnego przeciążenia.</p>
+    </section>
+    <app-test-readiness [value]="st.readiness" (changed)="readinessChanged($event)" (confirm)="confirmReadiness()" (postpone)="postpone.emit('ból / choroba w ocenie warunków początkowych')" />
+  }
+
+  <!-- ================= ROZGRZEWKA ================= -->
+  @case ('warmup') {
+    <section class="card">
+      <h2>Rozgrzewka ogólna · 10–15 min</h2>
+      <p class="muted">Nie rozpoczynaj maksymalnych prób bez rozgrzewki.</p>
+      <div class="checks">
+        @for (w of warmup; track w) {
+          <button type="button" class="check" [class.on]="st.warmupChecked.includes(w)" (click)="toggleWarmup(w)">
+            <span class="box">{{ st.warmupChecked.includes(w) ? '✓' : '' }}</span>{{ w }}
+          </button>
+        }
+      </div>
+      <button class="btn primary xl" type="button" (click)="next()" [disabled]="st.warmupChecked.length < warmup.length">Rozgrzewka zrobiona → Pull-up</button>
+    </section>
+  }
+
+  <!-- ================= WEIGHTED PULL-UP 1RM ================= -->
+  @case ('pullup') {
+    @let r = st.weightedPullUp;
+    <section class="card">
+      <div class="card-title"><h2>Test 1 · Weighted Pull-up 1RM</h2><app-score-chip label="9c" [score]="res.pullUp.score" /></div>
+      <app-test-figure kind="pullup" caption="Nachwyt na szerokość barków · pełny wyprost łokci · broda wyraźnie nad drążkiem" />
+      <details class="proto-d">
+        <summary>Protokół</summary>
+        <ul>
+          <li>Drążek, nachwyt, szerokość zbliżona do barków. Bez kippingu i bujania nogami. Obciążenie przy pasie.</li>
+          <li>Rozgrzewka: 3 podciągnięcia bez obciążenia → 1 z lekkim obciążeniem → stopniowo więcej.</li>
+          <li>Jedno powtórzenie na próbę, +1,25–2,5 kg, odpoczynek 3–4 min, maks. 4–5 ciężkich prób.</li>
+          <li>Zakończ, gdy kolejna próba nie jest możliwa technicznie. Bez wymuszonych powtórzeń.</li>
+        </ul>
+      </details>
+    </section>
+
+    @if (r.status === 'not_tested') {
+      <section class="card">
+        <div class="nt-banner">NOT TESTED</div>
+        <p class="muted">Powód: {{ r.skipReason || '–' }}. Wynik nie jest liczony jako 0.</p>
+        <button class="btn" type="button" (click)="unskip('pullup')">Jednak wykonuję test</button>
+      </section>
+    } @else {
+      @if (r.attempts.length) {
+        <section class="card">
+          <h3>Próby</h3>
+          <table class="table">
+            <thead><tr><th>#</th><th class="num">+kg</th><th>Wynik</th><th class="num">RPE</th><th></th></tr></thead>
+            <tbody>
+              @for (t of r.attempts; track $index) {
+                <tr [class.best]="res.pullUp.bestIndex === $index">
+                  <td>{{ $index + 1 }}</td><td class="num">{{ t.addedWeightKg }}</td>
+                  <td>{{ t.successful ? '✓' : '✗' }}{{ t.techniqueValid ? '' : ' · technika ✗' }}</td>
+                  <td class="num">{{ t.rpe ?? '–' }}</td>
+                  <td class="num">@if (!locked()) { <button class="btn ghost sm" type="button" (click)="removeAttempt('pullup', $index)" aria-label="Usuń">✕</button> }</td>
+                </tr>
+              }
+            </tbody>
+          </table>
+          @if (res.pullUp.score != null) {
+            <p><strong>Najlepiej: +{{ res.pullUp.addedWeightKg }} kg</strong> · łącznie {{ round1(res.pullUp.totalLoadKg) }} kg · {{ round1(res.pullUp.bodyMassRatioPercent) }}% masy ciała · <strong>{{ res.pullUp.score }}/10</strong></p>
+          }
+          @if (pullHeavy() >= 5) { <div class="note warn">To już {{ pullHeavy() }} ciężkich prób – protokół przewiduje maks. 4–5. Zakończ test.</div> }
+        </section>
+      }
+      @if (!locked()) {
+        @let f = pull();
+        <section class="card">
+          <h3>Próba {{ r.attempts.length + 1 }}</h3>
+          <label class="field">Dodatkowe obciążenie (kg)</label>
+          <app-stepper [value]="f.added" (valueChange)="pullSet('added', $event ?? 0)" [step]="1.25" [min]="0" [unit]="'łącznie ' + round1(bm() + f.added) + ' kg · ' + round1(bm() ? ((bm() + f.added) / bm()) * 100 : null) + '% masy ciała'" />
+          <label class="field">Poprawne powtórzenie?</label>
+          <app-yes-no [value]="f.successful" (valueChange)="pullSet('successful', $event)" yes="Zaliczone" no="Niezaliczone" />
+          <label class="field">Technika (pełny wyprost, broda nad drążkiem, bez kippingu)</label>
+          <app-yes-no [value]="f.technique" (valueChange)="pullSet('technique', $event)" yes="Poprawna" no="Niepoprawna" />
+          <label class="field">RPE</label>
+          <app-scale [min]="1" [max]="10" [hotFrom]="9" [value]="f.rpe" (valueChange)="pullSet('rpe', $event)" />
+          <input [ngModel]="f.notes" (ngModelChange)="pullSet('notes', $event)" placeholder="Uwagi (opcjonalnie)" aria-label="Uwagi" />
+          <button class="btn primary xl" type="button" (click)="savePull()" [disabled]="f.successful == null || f.technique == null">Zapisz próbę</button>
+        </section>
+        @if (r.attempts.length) { <app-rest-timer [seconds]="210" label="Odpoczynek 3–4 min" /> }
+        <button class="btn ghost block" type="button" (click)="skipFor.set('pullup')">Brak doświadczenia z obciążeniem – pomiń (NOT TESTED)</button>
+      }
+    }
+    <button class="btn primary xl" type="button" (click)="next()">Dalej → Siła palców</button>
+  }
+
+  <!-- ================= MAX FINGER STRENGTH ================= -->
+  @case ('finger') {
+    @let r = st.maxFingerStrength;
+    <section class="card">
+      <div class="card-title"><h2>Test 2 · Max Finger Strength</h2><app-score-chip label="9c" [score]="res.finger.score" /></div>
+      <p class="muted">Najważniejszy pomiar siłowy całego testu z perspektywy wspinania 6b–6c+.</p>
+      <app-test-figure kind="finger" caption="Obie ręce · half crimp · bez kciuka · łokcie proste · łopatki aktywne" />
+      <details class="proto-d">
+        <summary>Protokół</summary>
+        <ul>
+          <li>Krawądka ok. 20 mm – podaj jej <strong>rzeczywistą</strong> głębokość. Nie każda krawądka Beastmaker 2000 ma 20 mm.</li>
+          <li>Half crimp, bez pełnego zamkniętego chwytu, bez zmiany pozycji podczas zwisu.</li>
+          <li>Rozgrzewka: duże chwyty → większa krawądka → krawądka testowa z masą ciała / odciążeniem → krótki zwis z lekkim ciężarem.</li>
+          <li>Zwis dokładnie 5 s, obciążenie stopniowo, odpoczynek 3–5 min, maks. 4–5 ciężkich prób.</li>
+          <li>Przerwij przy bólu, utracie chwytu albo prawidłowej pozycji.</li>
+        </ul>
+      </details>
+      <div class="grid-2">
+        <label class="field">Głębokość krawądki (mm)
+          <input type="number" inputmode="decimal" step="0.5" [ngModel]="r.edgeDepthMm" (ngModelChange)="setEdge('edgeDepthMm', $event)" [disabled]="locked()" />
+        </label>
+        <label class="field">Krawądka (opis)
+          <input [ngModel]="r.edgeLabel" (ngModelChange)="setEdge('edgeLabel', $event)" placeholder="np. BM2000, środkowa" [disabled]="locked()" />
+        </label>
+      </div>
+      @if (r.edgeDepthMm == null) { <div class="note warn">Podaj rzeczywistą głębokość krawądki – bez niej porównanie z retestem nie będzie wiarygodne.</div> }
+      @else if (r.edgeDepthMm < 18 || r.edgeDepthMm > 22) { <div class="note warn">Krawądka {{ r.edgeDepthMm }} mm odbiega od 20 mm. Jeśli możesz, użyj skalibrowanej krawędzi 20 mm. Wynik zapisze się z rzeczywistą głębokością.</div> }
+      <p class="faint">Chwyt: half crimp (stały dla testu).</p>
+    </section>
+
+    @if (r.status === 'not_tested') {
+      <section class="card">
+        <div class="nt-banner">NOT TESTED</div>
+        <p class="muted">Powód: {{ r.skipReason || '–' }}.</p>
+        <button class="btn" type="button" (click)="unskip('finger')">Jednak wykonuję test</button>
+      </section>
+    } @else {
+      @if (r.attempts.length) {
+        <section class="card">
+          <h3>Próby</h3>
+          <table class="table">
+            <thead><tr><th>#</th><th class="num">+kg</th><th class="num">−kg</th><th class="num">Czas</th><th>Wynik</th><th class="num">RPE</th><th></th></tr></thead>
+            <tbody>
+              @for (t of r.attempts; track $index) {
+                <tr [class.best]="res.finger.bestIndex === $index">
+                  <td>{{ $index + 1 }}</td><td class="num">{{ t.addedWeightKg }}</td><td class="num">{{ t.assistanceKg || '–' }}</td>
+                  <td class="num">{{ t.holdSeconds }} s</td>
+                  <td>{{ t.successful && t.holdSeconds >= fingerHoldSec ? '✓' : '✗' }}{{ t.technicallyValid ? '' : ' · technika ✗' }}</td>
+                  <td class="num">{{ t.rpe ?? '–' }}</td>
+                  <td class="num">@if (!locked()) { <button class="btn ghost sm" type="button" (click)="removeAttempt('finger', $index)" aria-label="Usuń">✕</button> }</td>
+                </tr>
+              }
+            </tbody>
+          </table>
+          @if (res.finger.score != null && res.finger.totalLoadKg != null) {
+            <p><strong>Wynik: {{ res.finger.addedWeightKg! >= 0 && !res.finger.assistanceKg ? '+' + res.finger.addedWeightKg + ' kg' : '−' + res.finger.assistanceKg + ' kg (odciążenie)' }}</strong>
+              · łącznie {{ round1(res.finger.totalLoadKg) }} kg · {{ round1(res.finger.bodyMassRatioPercent) }}% masy ciała · <strong>{{ res.finger.score }}/10</strong></p>
+          }
+          @if (fingerHeavy() >= 5) { <div class="note warn">To już {{ fingerHeavy() }} ciężkich prób – protokół przewiduje maks. 4–5. Zakończ test.</div> }
+        </section>
+      }
+      @if (!locked()) {
+        @let f = finger();
+        <section class="card">
+          <h3>Próba {{ r.attempts.length + 1 }}</h3>
+          <div class="grid-2">
+            <div><label class="field">Dodatkowe obciążenie (kg)</label><app-stepper [value]="f.added" (valueChange)="fingerSet('added', $event ?? 0)" [step]="1.25" [min]="0" /></div>
+            <div><label class="field">Odciążenie (kg)</label><app-stepper [value]="f.assist" (valueChange)="fingerSet('assist', $event ?? 0)" [step]="1.25" [min]="0" /></div>
+          </div>
+          <p class="faint center">Łącznie {{ round1(bm() + f.added - f.assist) }} kg · {{ round1(bm() ? ((bm() + f.added - f.assist) / bm()) * 100 : null) }}% masy ciała</p>
+          <div class="timer-box">
+            @if (fingerStart(); as stt) {
+              <app-live-clock [start]="stt" [decimals]="true" />
+              <p class="center muted">Cel: {{ fingerHoldSec }} s – puść po 5 s</p>
+              <button class="btn primary xl" type="button" (click)="stopFingerHang()">STOP</button>
+            } @else {
+              <div class="clock-static num">{{ f.hold != null ? f.hold + ' s' : '0:00.0' }}</div>
+              <button class="btn primary xl" type="button" (click)="startFingerHang()">{{ f.hold != null ? 'Zmierz ponownie' : 'Start zwisu' }}</button>
+            }
+          </div>
+          <label class="field">Czas poprawnego zwisu (s) – możesz poprawić ręcznie
+            <input type="number" inputmode="decimal" step="0.1" [ngModel]="f.hold" (ngModelChange)="fingerSet('hold', num($event))" />
+          </label>
+          <label class="field">Pełne 5 s utrzymane?</label>
+          <app-yes-no [value]="f.successful" (valueChange)="fingerSet('successful', $event)" yes="Tak, 5 s" no="Nie" />
+          <label class="field">Pozycja prawidłowa (half crimp, łokcie proste, bez zmiany chwytu)?</label>
+          <app-yes-no [value]="f.valid" (valueChange)="fingerSet('valid', $event)" yes="Prawidłowa" no="Nie" />
+          <label class="field">RPE</label>
+          <app-scale [min]="1" [max]="10" [hotFrom]="9" [value]="f.rpe" (valueChange)="fingerSet('rpe', $event)" />
+          <button class="btn primary xl" type="button" (click)="saveFinger()" [disabled]="f.hold == null || f.successful == null || f.valid == null">Zapisz próbę</button>
+        </section>
+        @if (r.attempts.length) { <app-rest-timer [seconds]="240" label="Odpoczynek 3–5 min" /> }
+        <button class="btn ghost block" type="button" (click)="skipFor.set('finger')">Pomiń test (NOT TESTED)</button>
+      }
+    }
+    <button class="btn primary xl" type="button" (click)="next()">Dalej → Core</button>
+  }
+
+  <!-- ================= CORE ================= -->
+  @case ('core') {
+    @let r = st.coreStrength;
+    <section class="card">
+      <div class="card-title"><h2>Test 3 · Core Strength</h2><app-score-chip label="9c" [score]="res.core.score" /></div>
+      <app-test-figure kind="core" caption="Stabilne poręcze lub drążek · bez wymachów · czas tylko w prawidłowej pozycji" />
+      <table class="table">
+        <thead><tr><th>Poziom</th><th>Czas → punkty</th></tr></thead>
+        <tbody>
+          <tr><td>A · Bent Knee L-sit</td><td>10 s → 1 · 20 s → 2 · 30 s → 3</td></tr>
+          <tr><td>B · Full L-sit</td><td>10 s → 4 · 15 s → 5 · 20 s → 6</td></tr>
+          <tr><td>C · Front Lever</td><td>5 s → 7 · 10 s → 8 · 20 s → 9 · 30 s → 10</td></tr>
+        </tbody>
+      </table>
+      <p class="faint">Front lever wykonuj tylko, jeśli masz w nim doświadczenie. Zapisywany jest najwyższy osiągnięty poziom. Zakończ próbę przy wyraźnym załamaniu techniki.</p>
+    </section>
+    @if (r.status === 'not_tested') {
+      <section class="card">
+        <div class="nt-banner">NOT TESTED</div>
+        <p class="muted">Powód: {{ r.skipReason || '–' }}.</p>
+        <button class="btn" type="button" (click)="unskip('core')">Jednak wykonuję test</button>
+      </section>
+    } @else {
+      @if (r.attempts.length) {
+        <section class="card">
+          <h3>Próby</h3>
+          @for (t of r.attempts; track $index) {
+            <div class="spread trial" [class.best]="res.core.bestIndex === $index">
+              <span>{{ coreLabels[t.exercise] }} · {{ t.holdSeconds }} s{{ t.technicallyValid ? '' : ' · technika ✗' }}</span>
+              <span class="row"><strong>{{ t.technicallyValid ? coreTrialPointsOf(t) : 0 }} pkt</strong>
+                @if (!locked()) { <button class="btn ghost sm" type="button" (click)="removeAttempt('core', $index)" aria-label="Usuń">✕</button> }</span>
+            </div>
+          }
+        </section>
+      }
+      @if (!locked()) {
+        @let f = core();
+        <section class="card">
+          <h3>Wariant</h3>
+          <div class="seg3">
+            @for (k of coreKeys; track k) {
+              <button type="button" [class.on]="f.exercise === k" (click)="coreSet('exercise', k)">{{ coreLabels[k] }}</button>
+            }
+          </div>
+          <div class="timer-box">
+            @if (coreStart(); as stt) {
+              <app-live-clock [start]="stt" [decimals]="true" />
+              <button class="btn primary xl" type="button" (click)="stopCore()">STOP – koniec pozycji</button>
+            } @else {
+              <div class="clock-static num">{{ f.hold != null ? f.hold + ' s' : '0:00.0' }}</div>
+              <button class="btn primary xl" type="button" (click)="startCore()">{{ f.hold != null ? 'Zmierz ponownie' : 'Start' }}</button>
+            }
+          </div>
+          <label class="field">Czas utrzymania (s)
+            <input type="number" inputmode="decimal" step="0.1" [ngModel]="f.hold" (ngModelChange)="coreSet('hold', num($event))" />
+          </label>
+          @if (corePreview() != null) { <p class="center"><strong>{{ corePreview() }} pkt</strong> za tę próbę</p> }
+          <label class="field">Pozycja utrzymana prawidłowo?</label>
+          <app-yes-no [value]="f.valid" (valueChange)="coreSet('valid', $event)" yes="Prawidłowo" no="Nie" />
+          <button class="btn primary xl" type="button" (click)="saveCore()" [disabled]="f.hold == null || f.valid == null">Zapisz próbę</button>
+        </section>
+        <button class="btn ghost block" type="button" (click)="skipFor.set('core')">Pomiń test (NOT TESTED)</button>
+      }
+    }
+    <button class="btn primary xl" type="button" (click)="next()">Dalej → Dead Hang</button>
+  }
+
+  <!-- ================= DEAD HANG ================= -->
+  @case ('deadhang') {
+    @let r = st.deadHang;
+    <section class="card">
+      <div class="card-title"><h2>Test 4 · Dead Hang</h2><app-score-chip label="9c" [score]="res.deadHang.score" /></div>
+      <app-test-figure kind="deadhang" caption="Standardowy drążek · bez rękawiczek · magnezja wg standardu" />
+      <details class="proto-d">
+        <summary>Protokół i punktacja</summary>
+        <ul>
+          <li>Zwis oburącz, nachwyt, pozycja bezpieczna dla barków.</li>
+          <li>Bez przesuwania dłoni, poprawiania chwytu i odpoczynku jednej ręki.</li>
+          <li>Czas kończy się po puszczeniu drążka lub utracie prawidłowej pozycji. Maks. 6 minut – nie musisz go osiągać.</li>
+          <li>30 s → 1 · 60 → 2 · 90 → 3 · 120 → 4 · 150 → 5 · 180 → 6 · 210 → 7 · 240 → 8 · 300 → 9 · 360 → 10</li>
+        </ul>
+      </details>
+    </section>
+    @if (r.status === 'not_tested') {
+      <section class="card">
+        <div class="nt-banner">NOT TESTED</div>
+        <p class="muted">Powód: {{ r.skipReason || '–' }}.</p>
+        <button class="btn" type="button" (click)="unskip('deadhang')">Jednak wykonuję test</button>
+      </section>
+    } @else {
+      <section class="card">
+        <div class="timer-box">
+          @if (r.timerStartedAt; as stt) {
+            <app-live-clock [start]="stt" [cap]="deadHangMax" mode="up" />
+            <app-live-clock [start]="stt" mode="down" [seconds]="deadHangMax" (finished)="stopDeadHang(true)" style="--clock-size: 1rem; opacity: .6" />
+            <button class="btn primary xl" type="button" (click)="stopDeadHang()">STOP – puszczenie / utrata pozycji</button>
+          } @else {
+            <div class="clock-static num">{{ r.holdSeconds != null ? fmt(r.holdSeconds) : '0:00' }}</div>
+            @if (!locked()) {
+              <button class="btn primary xl" type="button" (click)="startDeadHang()">{{ r.holdSeconds != null ? 'Zmierz ponownie' : 'Start zwisu' }}</button>
+            }
+          }
+        </div>
+        <div class="grid-2">
+          <label class="field">Czas całkowity (s)
+            <input type="number" inputmode="decimal" step="0.1" [ngModel]="r.holdSeconds" (ngModelChange)="setDeadHang('holdSeconds', num($event))" [disabled]="locked()" />
+          </label>
+          <label class="field">Średnica drążka (mm, jeśli znana)
+            <input type="number" inputmode="decimal" [ngModel]="r.barDiameterMm" (ngModelChange)="setDeadHang('barDiameterMm', num($event))" [disabled]="locked()" />
+          </label>
+        </div>
+        <label class="field">Przyczyna zakończenia próby
+          <select [ngModel]="r.endReason" (ngModelChange)="setDeadHang('endReason', $event)" [disabled]="locked()">
+            <option [ngValue]="null">– wybierz –</option>
+            @for (k of endKeys; track k) { <option [ngValue]="k">{{ endLabels[k] }}</option> }
+          </select>
+        </label>
+        <p class="faint">Chwyt: nachwyt (stały dla testu).</p>
+      </section>
+      @if (!locked()) { <button class="btn ghost block" type="button" (click)="skipFor.set('deadhang')">Pomiń test (NOT TESTED)</button> }
+    }
+    <button class="btn primary xl" type="button" (click)="next()">Dalej → Wynik</button>
+  }
+
+  <!-- ================= PODSUMOWANIE ================= -->
+  @case ('summary') {
+    <section class="card hero">
+      <div class="eyebrow">Punktacja 9c Strength Test</div>
+      <div class="grid-2 grid-md-4">
+        <app-score-chip label="Finger Strength" [score]="res.finger.score" />
+        <app-score-chip label="Pulling Strength" [score]="res.pullUp.score" />
+        <app-score-chip label="Core Strength" [score]="res.core.score" />
+        <app-score-chip label="Endurance" [score]="res.deadHang.score" />
+      </div>
+      @if (res.nineC.isComplete) {
+        <app-score-chip label="Total" [score]="res.nineC.totalPoints" [max]="40" [sub]="res.nineC.estimatedGrade ? 'Orientacyjny benchmark siłowy: ' + res.nineC.estimatedGrade : ''" />
+        <p class="faint">Benchmark siłowy wg publikowanej punktacji 9c – nie jest to przewidywany rzeczywisty poziom wspinaczkowy i nie wchodzi do wskaźnika progresu.</p>
+      } @else {
+        <p class="note info">Test niekompletny – suma 40-punktowa nie jest liczona. Brakujące pomiary oznaczone jako NOT TESTED (nie jako 0).</p>
+      }
+    </section>
+    <section class="card">
+      <label class="field">Notatki z sesji (opcjonalnie)
+        <textarea [ngModel]="st.notes" (ngModelChange)="setNotes($event)" [disabled]="locked()"></textarea>
+      </label>
+      @if (!locked()) {
+        <button class="btn primary xl" type="button" (click)="finish()">Zakończ dzień 1 i pokaż raport</button>
+      } @else {
+        <button class="btn" type="button" (click)="reopen()">Otwórz sesję ponownie (poprawka pomiaru)</button>
+      }
+    </section>
+  }
+}
+
+@if (skipFor(); as what) {
+  <div class="sheet-backdrop" (click)="skipFor.set(null)">
+    <div class="sheet" role="dialog" aria-modal="true" aria-label="Pominięcie testu" (click)="$event.stopPropagation()">
+      <h2>Pominąć test?</h2>
+      <p class="muted">Wynik zostanie oznaczony jako <strong>NOT TESTED</strong> – nie jako 0 punktów. Suma 9c nie będzie liczona.</p>
+      <label class="field">Powód
+        <select [(ngModel)]="skipReason">@for (r of skipReasons; track r) { <option [value]="r">{{ r }}</option> }</select>
+      </label>
+      <div class="btn-row">
+        <button class="btn big" type="button" (click)="skipFor.set(null)">Anuluj</button>
+        <button class="btn primary big" type="button" (click)="confirmSkip()">Pomiń</button>
+      </div>
+    </div>
+  </div>
+}

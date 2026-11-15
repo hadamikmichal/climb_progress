@@ -1,0 +1,129 @@
+<div class="page">
+  <header class="page-head">
+    <div>
+      <div class="eyebrow">Profil i ustawienia</div>
+      <h1>{{ p().name || 'Twój profil' }}</h1>
+    </div>
+    <button class="btn sm" type="button" (click)="toggleTheme()">{{ theme() === 'dark' ? 'Jasny motyw' : 'Ciemny motyw' }}</button>
+  </header>
+
+  @if (msg(); as m) {
+    <div class="note" [class.ok]="m.kind === 'ok'" [class.bad]="m.kind === 'bad'" [class.info]="m.kind === 'info'">{{ m.text }}</div>
+  }
+
+  <section class="card">
+    <h3>Profil</h3>
+    <div class="grid-2 grid-md-3">
+      <label class="field">Imię<input [ngModel]="p().name" (ngModelChange)="edit(setName($event))" /></label>
+      <label class="field">Wzrost (cm)<input type="number" inputmode="numeric" [ngModel]="p().heightCm" (ngModelChange)="edit(setNum('heightCm', $event))" /></label>
+      <label class="field">Masa ciała (kg)<input type="number" inputmode="decimal" step="0.5" [ngModel]="p().weightKg" (ngModelChange)="edit(setNum('weightKg', $event))" /></label>
+      <label class="field">Aktualny poziom
+        <select [ngModel]="p().grade" (ngModelChange)="edit(setStr('grade', $event))">@for (g of grades; track g) { <option [value]="g">{{ g }}</option> }</select>
+      </label>
+      <label class="field">Cel
+        <select [ngModel]="p().targetGrade" (ngModelChange)="edit(setStr('targetGrade', $event))">@for (g of grades; track g) { <option [value]="g">{{ g }}</option> }</select>
+      </label>
+      <label class="field">Długość dróg (m)<input type="number" inputmode="numeric" [ngModel]="p().routeLengthM" (ngModelChange)="edit(setNum('routeLengthM', $event))" /></label>
+    </div>
+
+    <h3>Dni treningowe</h3>
+    <div class="grid-md-3">
+      @for (t of types; track t) {
+        <label class="field">{{ t }} – {{ templates[t].name }}
+          <select [ngModel]="p().trainingDays[t]" (ngModelChange)="setDay(t, $event)">
+            @for (w of weekdays; track w.d) { <option [ngValue]="w.d">{{ w.name }}</option> }
+          </select>
+        </label>
+      }
+    </div>
+    @for (e of dayErrors(); track e) { <p class="note bad">{{ e }}</p> }
+    <p class="faint">Zmiana dni przelicza daty przyszłych, jeszcze niezrealizowanych jednostek. Jednostki przełożone ręcznie zostają na swoich terminach.</p>
+
+    <h3>Chwytotablica – domyślne ustawienia</h3>
+    <div class="grid-2">
+      <label class="field">Rodzaj chwytu
+        <select [ngModel]="p().hangboard.holdType" (ngModelChange)="edit(setHb('holdType', $event))">@for (h of holds; track h) { <option [value]="h">{{ holdLabels[h] }}</option> }</select>
+      </label>
+      <label class="field">Uchwyt
+        <select [ngModel]="p().hangboard.grip" (ngModelChange)="edit(setHb('grip', $event))">@for (g of grips; track g) { <option [value]="g">{{ gripLabels[g] }}</option> }</select>
+      </label>
+      <label class="field">Konkretna krawądka<input [ngModel]="p().hangboard.edge" (ngModelChange)="edit(setHb('edge', $event))" placeholder="np. środkowa krawądka, górny rząd" /></label>
+      <label class="field">Rozmiar (mm, jeśli znasz)<input type="number" [ngModel]="p().hangboard.edgeSizeMm" (ngModelChange)="edit(setHb('edgeSizeMm', $event || null))" /></label>
+    </div>
+    <p class="faint">Rozmiary krawądek Beastmakera 2000 nie są jednakowe – aplikacja nie zakłada rozmiaru i porównuje wyniki tylko w obrębie tej samej krawądki.</p>
+    <button class="btn primary big" type="button" (click)="saveProfile()" [disabled]="busy() || dayErrors().length > 0">Zapisz profil</button>
+  </section>
+
+  @if (params(); as n) {
+    <section class="card">
+      <h3>Parametry bieżącego cyklu</h3>
+      <p class="faint">Zwykle zmienia je moduł adaptacji. Ręczna zmiana zostanie zapisana z wyjaśnieniem w historii zmian planu.</p>
+      <h4>B – Max Hangs</h4>
+      <div class="grid-2 grid-md-3">
+        <label class="field">Krawądka<input [ngModel]="n.hangboard.edge" (ngModelChange)="editParams(pp('hangboard', 'edge', $event))" /></label>
+        <label class="field">Rozmiar (mm)<input type="number" [ngModel]="n.hangboard.edgeSizeMm" (ngModelChange)="editParams(pp('hangboard', 'edgeSizeMm', $event))" /></label>
+        <label class="field">Uchwyt
+          <select [ngModel]="n.hangboard.grip" (ngModelChange)="editParams(pp('hangboard', 'grip', $event))">@for (g of grips; track g) { <option [value]="g">{{ gripLabels[g] }}</option> }</select>
+        </label>
+        <label class="field">Czas zwisu (s, 7–10)<input type="number" min="5" max="15" [ngModel]="n.hangboard.hangSec" (ngModelChange)="editParams(pp('hangboard', 'hangSec', $event))" /></label>
+        <label class="field">Serie (maks. 5)<input type="number" min="1" max="5" [ngModel]="n.hangboard.sets" (ngModelChange)="editParams(pp('hangboard', 'sets', $event))" /></label>
+        <label class="field">Przerwa (s)<input type="number" min="60" step="30" [ngModel]="n.hangboard.restSec" (ngModelChange)="editParams(pp('hangboard', 'restSec', $event))" /></label>
+        <label class="field">Obciążenie +kg<input type="number" step="0.5" min="0" [ngModel]="n.hangboard.addedKg" (ngModelChange)="editParams(pp('hangboard', 'addedKg', $event))" /></label>
+        <label class="field">Odciążenie −kg<input type="number" step="0.5" min="0" [ngModel]="n.hangboard.assistKg" (ngModelChange)="editParams(pp('hangboard', 'assistKg', $event))" /></label>
+      </div>
+      <h4>A – trudne drogi</h4>
+      <div class="grid-2 grid-md-3">
+        <label class="field">Trudne drogi od
+          <select [ngModel]="n.hardRoutes.gradeFrom" (ngModelChange)="editParams(pp('hardRoutes', 'gradeFrom', $event))">@for (g of grades; track g) { <option [value]="g">{{ g }}</option> }</select>
+        </label>
+        <label class="field">do
+          <select [ngModel]="n.hardRoutes.gradeTo" (ngModelChange)="editParams(pp('hardRoutes', 'gradeTo', $event))">@for (g of grades; track g) { <option [value]="g">{{ g }}</option> }</select>
+        </label>
+        <label class="field">Maks. prób<input type="number" min="1" [ngModel]="n.hardRoutes.maxAttempts" (ngModelChange)="editParams(pp('hardRoutes', 'maxAttempts', $event))" /></label>
+      </div>
+      <h4>B – drogi tlenowe</h4>
+      <div class="grid-2 grid-md-3">
+        <label class="field">Liczba dróg<input type="number" min="1" max="8" [ngModel]="n.aerobic.routes" (ngModelChange)="editParams(pp('aerobic', 'routes', $event))" /></label>
+        <label class="field">Trudność
+          <select [ngModel]="n.aerobic.grade" (ngModelChange)="editParams(pp('aerobic', 'grade', $event))">@for (g of grades; track g) { <option [value]="g">{{ g }}</option> }</select>
+        </label>
+        <label class="field">Przerwa (min)<input type="number" min="1" [ngModel]="n.aerobic.restMin" (ngModelChange)="editParams(pp('aerobic', 'restMin', $event))" /></label>
+      </div>
+      <h4>C – wytrzymałość siłowa</h4>
+      <div class="grid-2 grid-md-3">
+        <label class="field">Serie<input type="number" min="1" max="4" [ngModel]="n.powerEndurance.sets" (ngModelChange)="editParams(pp('powerEndurance', 'sets', $event))" /></label>
+        <label class="field">Dróg w serii<input type="number" min="2" max="4" [ngModel]="n.powerEndurance.routesPerSet" (ngModelChange)="editParams(pp('powerEndurance', 'routesPerSet', $event))" /></label>
+        <label class="field">Trudność
+          <select [ngModel]="n.powerEndurance.grade" (ngModelChange)="editParams(pp('powerEndurance', 'grade', $event))">@for (g of grades; track g) { <option [value]="g">{{ g }}</option> }</select>
+        </label>
+        <label class="field">Przerwa między drogami (min)<input type="number" min="1" [ngModel]="n.powerEndurance.restBetweenRoutesMin" (ngModelChange)="editParams(pp('powerEndurance', 'restBetweenRoutesMin', $event))" /></label>
+        <label class="field">Przerwa między seriami (min)<input type="number" min="5" [ngModel]="n.powerEndurance.restBetweenSetsMin" (ngModelChange)="editParams(pp('powerEndurance', 'restBetweenSetsMin', $event))" /></label>
+      </div>
+      <button class="btn primary big" type="button" (click)="saveParams()">Zapisz parametry</button>
+    </section>
+  }
+
+  <section class="card">
+    <div class="card-title"><h3>Cykle treningowe</h3><button class="btn sm" type="button" (click)="newCycle()">Nowy cykl</button></div>
+    @for (c of cycles(); track c.id) {
+      <div class="list-item">
+        <div class="grow">
+          <strong>{{ c.name }}</strong> <span class="badge plain">{{ c.status === 'active' ? 'aktywny' : c.status === 'baseline' ? 'test początkowy' : c.status === 'completed' ? 'zakończony' : 'zarchiwizowany' }}</span>
+          <small>Start: {{ c.baselineDate | datePl }} · {{ c.weeks }} tyg. · deload: tydz. {{ c.deloadWeeks.join(', ') }}</small>
+        </div>
+        <a class="btn sm ghost" routerLink="/history">Historia</a>
+      </div>
+    } @empty { <p class="empty">Brak cykli. Rozpocznij pierwszy na ekranie Start.</p> }
+  </section>
+
+  <section class="card">
+    <h3>Kopia zapasowa</h3>
+    <p class="muted">Dane są przechowywane wyłącznie lokalnie w tej przeglądarce (IndexedDB). Regularnie eksportuj kopię do pliku JSON.</p>
+    <div class="btn-row">
+      <button class="btn primary" type="button" (click)="exportData()">Eksportuj JSON</button>
+      <label class="btn">Importuj JSON<input type="file" accept="application/json,.json" class="sr-only" (change)="importData($event)" /></label>
+    </div>
+    <div class="divider"></div>
+    <button class="btn danger" type="button" (click)="reset()">Usuń wszystkie dane</button>
+  </section>
+</div>
