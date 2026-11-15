@@ -1,43 +1,79 @@
 import { Component, computed, inject, signal } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { FormsModule } from '@angular/forms';
-import type { ChartConfiguration } from 'chart.js';
 import { AppStore } from '../../core/data/store';
-import { addDays, diffDays, startOfWeek } from '../../core/logic/dates';
-import { suggestPlanStart } from '../../core/logic/plan';
+import { PlannedWorkout, Weekday } from '../../core/models/models';
+import { addDays, diffDays, formatDate, startOfWeek, WEEKDAY_SHORT, weekdayOf } from '../../core/logic/dates';
+import { prescriptionFor, suggestPlanStart, isDeloadWeek } from '../../core/logic/plan';
+import { prescriptionLines, plannedShortName } from '../../core/logic/describe';
 import { isPending } from '../../core/logic/scheduling';
-import { routesByWeek, regularitySummary } from '../../core/logic/stats';
-import { summarizeTest, RESERVE_LABELS } from '../../core/logic/reports';
-import { sessionMaxPump, sessionRpe } from '../../core/logic/progression';
-import { maxGrade } from '../../core/logic/grades';
-import { TYPE_SHORT, TEMPLATES } from '../../core/logic/templates';
-import { Weekday } from '../../core/models/models';
-import { PlannedCard } from '../plan/planned-card';
-import { ScoreChip } from '../assessment/score-chip';
+import { summarizeTest } from '../../core/logic/reports';
+import { effectiveLoadKg, formatLoad, sessionMaxPump, sessionRpe } from '../../core/logic/progression';
+import { isTest, STATUS_LABELS, TEMPLATES } from '../../core/logic/templates';
 import { strengthResults } from '../../core/logic/assessment/scoring';
-import { climbingResults } from '../../core/logic/assessment/climbing';
+import { climbingResults, formatSeconds } from '../../core/logic/assessment/climbing';
 import { generateConclusions } from '../../core/logic/assessment/conclusions';
-import { ChartView } from '../../shared/chart';
+import { KIND_LABELS } from '../../core/logic/assessment/labels';
 import { DatePlPipe } from '../../shared/pipes';
+import { Icon } from '../../shared/icon';
+import { MissedSheet } from '../plan/missed-sheet';
+import { MoveSheet } from '../plan/move-sheet';
+import { PlannedCard } from '../plan/planned-card';
 
+/** Nagłówek redakcyjny dla etapu cyklu – jedna myśl, nie statystyka */
+const HEADLINES: Record<string, [string, string]> = {
+  none: ['Train with intent.', 'Climb with reserve.'],
+  baseline: ['Najpierw pomiar.', 'Potem plan.'],
+  block1: ['Buduj bazę.', 'Zostaw siłę na crux.'],
+  block2: ['Podnieś poprzeczkę.', 'Kontroluj zmęczenie.'],
+  deload: ['Lżej w tym tygodniu.', 'Regeneracja to trening.'],
+  final: ['Czas na retest.', 'Te same warunki.'],
+  done: ['Cykl zamknięty.', 'Sprawdź, co się zmieniło.'],
+};
+
+/** Dziś – odpowiedź na pytanie „co dalej?” */
 @Component({
   selector: 'app-dashboard',
-  imports: [RouterLink, FormsModule, PlannedCard, ChartView, DatePlPipe, ScoreChip],
+  imports: [RouterLink, FormsModule, DatePlPipe, Icon, MissedSheet, MoveSheet, PlannedCard],
   templateUrl: './dashboard.html',
+  styleUrl: './dashboard.scss',
 })
 export class Dashboard {
   protected readonly store = inject(AppStore);
-  protected readonly typeShort = TYPE_SHORT;
   protected readonly templates = TEMPLATES;
-  protected readonly reserveLabels = RESERVE_LABELS;
+  protected readonly statusLabels = STATUS_LABELS;
+  protected readonly shortName = plannedShortName;
+  protected readonly fmtSec = formatSeconds;
+  protected readonly kindLabels = KIND_LABELS;
 
   protected baselineDate = this.store.today();
   protected planStart = '';
   protected readonly busy = signal(false);
+  protected readonly sheet = signal<{ kind: 'move' | 'missed'; p: PlannedWorkout } | null>(null);
 
   protected readonly cycle = this.store.cycle;
 
-  /** Baseline Test v1.0 bieżącego cyklu (rekord istnieje od rozpoczęcia pierwszej sesji) */
+  /* ---------------- nagłówek ---------------- */
+
+  protected readonly headline = computed(() => {
+    const c = this.cycle();
+    if (!c) return this.store.lastCycle() ? HEADLINES['done'] : HEADLINES['none'];
+    if (c.status === 'baseline') return HEADLINES['baseline'];
+    const w = this.store.currentWeek();
+    if (w > c.weeks) return HEADLINES['final'];
+    if (w >= 1 && isDeloadWeek(c, w)) return HEADLINES['deload'];
+    const firstDeload = Math.min(...c.deloadWeeks, c.weeks + 1);
+    return w >= 1 && w > firstDeload ? HEADLINES['block2'] : HEADLINES['block1'];
+  });
+  protected readonly weekText = computed(() => {
+    const c = this.cycle();
+    const w = this.store.currentWeek();
+    if (!c?.planStart || w < 1 || w > c.weeks) return null;
+    return { w: String(w).padStart(2, '0'), of: String(c.weeks).padStart(2, '0') };
+  });
+
+  /* ---------------- faza testu początkowego ---------------- */
+
   protected readonly baseline = computed(() => {
     const c = this.cycle();
     return c ? this.store.assessmentFor(c.id, 'BASELINE') : null;
@@ -60,85 +96,91 @@ export class Dashboard {
   });
   protected readonly legacySummary = computed(() => (this.legacyBaseline() ? summarizeTest(this.legacyBaseline()!) : null));
   protected readonly suggestedStart = computed(() => {
-    const a = this.baseline();
-    const end = a?.climbing?.date ?? this.legacyBaseline()?.date;
+    const end = this.baseline()?.climbing?.date ?? this.legacyBaseline()?.date;
     const p = this.store.profile().trainingDays;
     return end ? suggestPlanStart(end > this.store.today() ? end : this.store.today(), Math.min(p.A, p.B, p.C) as Weekday) : '';
   });
+  protected readonly baselineItems = computed(() => this.store.cyclePlanned().filter((p) => p.type === 'BASELINE'));
+
+  /* ---------------- następna sesja ---------------- */
+
+  protected readonly next = this.store.nextWorkout;
+  protected readonly nextInfo = computed(() => {
+    const p = this.next();
+    const c = this.cycle();
+    if (!p || !c) return null;
+    const t = TEMPLATES[p.type];
+    const pr = prescriptionFor(c, p.week);
+    const parts = t.exercises.filter((e) => e.kind !== 'technique').length;
+    const prev = isTest(p.type) ? null : this.store.completedSorted().find((w) => w.type === p.type) ?? null;
+    const a = isTest(p.type) && p.part ? this.store.assessmentFor(p.cycleId, p.type) : null;
+    const partState = a ? (p.part === 'strength' ? a.strength : a.climbing)?.status : null;
+    return {
+      p, t, lines: prescriptionLines(p.type, pr.params, p.part), deload: !isTest(p.type) && pr.deload,
+      parts, prev, prevRpe: prev ? sessionRpe(prev) : null, prevPump: prev ? sessionMaxPump(prev) : null,
+      startLink: isTest(p.type) ? [p.part ? '/assessment/run' : '/test', p.id] : ['/session', p.id],
+      resumable: !!this.store.getDraft(p.id) || partState === 'in_progress',
+      when: p.date === this.store.today() ? 'Dziś' : p.date === addDays(this.store.today(), 1) ? 'Jutro' : formatDate(p.date),
+    };
+  });
+
+  /* ---------------- tydzień ---------------- */
 
   protected readonly week = computed(() => {
     const t = this.store.today();
     const s = startOfWeek(t);
-    const e = addDays(s, 6);
-    const items = this.store.cyclePlanned().filter((p) => (p.date >= s && p.date <= e) || (p.status === 'skipped' && p.originalDate >= s && p.originalDate <= e));
-    const uniq = [...new Map(items.map((i) => [i.id, i])).values()];
-    return {
-      total: uniq.length,
-      done: uniq.filter((p) => p.status === 'done').length,
-      partial: uniq.filter((p) => p.status === 'partial').length,
-      skipped: uniq.filter((p) => p.status === 'skipped').length,
-      left: uniq.filter((p) => isPending(p.status)).length,
-    };
+    const items = this.store.cyclePlanned().filter((p) => p.date >= s && p.date <= addDays(s, 6));
+    return items.map((p) => ({
+      p, day: WEEKDAY_SHORT[weekdayOf(p.date)], date: p.date, isToday: p.date === t,
+      status: p.status === 'done' ? 'Wykonany' : p.status === 'partial' ? 'Częściowo' : p.status === 'skipped' ? 'Pominięty' : p.date < t ? 'Zaległy' : p.date === t ? 'Dziś' : 'Zaplanowany',
+      cls: p.status === 'done' ? 'done' : p.status === 'partial' ? 'partial' : p.status === 'skipped' || (isPending(p.status) && p.date < t) ? 'skipped' : 'planned',
+    }));
+  });
+  protected readonly weekDone = computed(() => this.week().filter((x) => x.p.status === 'done' || x.p.status === 'partial').length);
+
+  /* ---------------- ostatnie wyniki ---------------- */
+
+  protected readonly lastHang = computed(() => {
+    const w = this.store.completedSorted().find((x) => x.hangs.length);
+    if (!w) return null;
+    const h = w.hangs[0];
+    return { w, h, load: formatLoad(h), eff: effectiveLoadKg(h) };
+  });
+  protected readonly lastSession = computed(() => {
+    const w = this.store.completedSorted()[0];
+    if (!w) return null;
+    return { w, rpe: sessionRpe(w), pump: sessionMaxPump(w), sent: w.routes.filter((r) => r.completed).length, total: w.routes.length };
+  });
+  protected readonly lastTest = computed(() => {
+    const a = this.store.completedAssessments().at(-1);
+    if (!a) return null;
+    const c = a.climbing ? climbingResults(a.climbing) : null;
+    const s = a.strength ? strengthResults(a.strength) : null;
+    return { a, c, s };
   });
 
-  protected readonly regularity = computed(() => regularitySummary(this.store.cyclePlanned(), this.store.completed().filter((w) => w.cycleId === this.cycle()?.id), this.store.today()));
-  protected readonly cyclePct = computed(() => {
-    const all = this.store.cyclePlanned();
-    const settled = all.filter((p) => !isPending(p.status)).length;
-    return all.length ? Math.round((settled / all.length) * 100) : 0;
-  });
-
-  protected readonly recent = computed(() => this.store.completedSorted().slice(0, 3).map((w) => ({
-    w, rpe: sessionRpe(w), pump: sessionMaxPump(w),
-    routes: w.routes.filter((r) => r.completed).length, total: w.routes.length,
-    hardest: maxGrade(w.routes.filter((r) => r.completed).map((r) => r.grade)),
-  })));
-
-  protected readonly hardestRecent = computed(() => {
-    const since = addDays(this.store.today(), -42);
-    return maxGrade(this.store.completed().filter((w) => w.date >= since).flatMap((w) => w.routes.filter((r) => r.completed).map((r) => r.grade)));
-  });
+  /* ---------------- regeneracja ---------------- */
 
   protected readonly recovery = computed(() => {
     const last = this.store.lastHeavy();
     const days = last ? diffDays(last, this.store.today()) : null;
     const a = this.store.todayAssessment();
-    const next = this.store.nextWorkout();
     let text: string;
-    if (a && a.level !== 'go') text = a.messages[0];
+    let tone: 'ok' | 'warn' = 'ok';
+    if (a && a.level !== 'go') { text = a.messages[0]; tone = 'warn'; }
     else if (days == null) text = 'Brak ciężkich jednostek w historii.';
-    else if (days === 0) text = 'Dziś była ciężka jednostka – jutro bez treningu siłowego.';
-    else if (days === 1) text = 'Wczoraj była ciężka jednostka. Dziś tylko lekki trening lub odpoczynek.';
-    else text = `${days} dni od ostatniej ciężkiej jednostki – regeneracja wystarczająca.`;
-    return { days, text, assessment: a, nextHeavy: next ? TEMPLATES[next.type].heavy : false };
+    else if (days === 0) { text = 'Dziś była ciężka jednostka – jutro bez treningu siłowego.'; tone = 'warn'; }
+    else if (days === 1) { text = 'Wczoraj była ciężka jednostka. Dziś tylko lekki ruch lub odpoczynek.'; tone = 'warn'; }
+    else text = 'Regeneracja wystarczająca do ciężkiej jednostki.';
+    return { days, text, tone, assessment: a };
   });
 
-  protected readonly lastReport = computed(() => {
-    const c = this.cycle() ?? this.store.lastCycle();
-    return c ? [...this.store.reports()].filter((r) => r.cycleId === c.id).sort((a, b) => b.week - a.week)[0] ?? null : null;
-  });
-  protected readonly lastEvents = computed(() => this.store.eventsSorted().filter((e) => e.kind !== 'plan').slice(0, 3));
-
-  protected readonly miniChart = computed<ChartConfiguration | null>(() => {
-    const weeks = routesByWeek(this.store.completed()).slice(-6);
-    if (!weeks.length) return null;
-    const accent = getComputedStyle(document.documentElement).getPropertyValue('--accent').trim() || '#d6f54a';
-    return {
-      type: 'bar',
-      data: {
-        labels: weeks.map((w) => w.weekStart.slice(5).split('-').reverse().join('.')),
-        datasets: [{ label: 'Ukończone drogi', data: weeks.map((w) => w.completed), backgroundColor: accent, borderRadius: 6 }],
-      },
-      options: { plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true, ticks: { precision: 0 } }, x: { grid: { display: false } } } },
-    };
-  });
-
+  protected readonly lastEvents = computed(() => this.store.eventsSorted().filter((e) => e.kind !== 'plan').slice(0, 2));
   protected readonly completedCycle = computed(() => {
     if (this.cycle()) return null;
     const c = this.store.lastCycle();
     if (!c) return null;
-    const tests = this.store.testsFor(c.id);
-    return { cycle: c, final: this.store.assessmentFor(c.id, 'FINAL'), legacyFinal: tests.find((t) => t.kind === 'FINAL') };
+    return { cycle: c, final: this.store.assessmentFor(c.id, 'FINAL'), legacyFinal: this.store.testsFor(c.id).find((t) => t.kind === 'FINAL') };
   });
 
   protected readonly focusLabel = (f: { label: string }) => f.label;
