@@ -20,6 +20,9 @@ export type WorkoutType = TrainingType | TestKind;
 export type WorkoutStatus = 'planned' | 'done' | 'partial' | 'skipped' | 'moved';
 export type SkipReason = 'time' | 'fatigue' | 'pain' | 'illness' | 'other' | 'no_slot';
 
+/** Styl przejścia trudnej drogi (trening A) */
+export type AscentStyle = 'onsight' | 'flash' | 'redpoint';
+
 export type GripPosition = 'half_crimp' | 'open_hand' | 'full_crimp' | 'three_finger_drag';
 export type HoldType = 'edge' | 'pocket' | 'sloper' | 'jug';
 
@@ -177,6 +180,8 @@ export interface RouteLog {
   rpe: number | null;
   cruxSent?: boolean | null;
   techniqueDegraded?: boolean | null;
+  /** Styl przejścia (tylko ukończone trudne drogi); brak = nie podano */
+  ascent?: AscentStyle | null;
   notes: string;
   timestamp: Timestamp;
 }

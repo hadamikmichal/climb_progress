@@ -269,6 +269,34 @@ export class AppStore {
     return [];
   }
 
+  /** Naruszenia, gdyby jednostkę zastąpić innym typem w tym samym dniu */
+  replaceViolations(plannedId: string, type: TrainingType): string[] {
+    const p = this.getPlanned(plannedId)!;
+    return slotViolations(this.cyclePlanned(), type, p.date, [p.id]);
+  }
+
+  /**
+   * Zastąpienie zaplanowanej jednostki alternatywną (A/B/C) w tym samym terminie.
+   * Parametry obciążenia się nie zmieniają; zapisujemy zdarzenie z powodem.
+   */
+  async replacePlanned(plannedId: string, type: TrainingType, reason: string): Promise<string[]> {
+    const p = this.getPlanned(plannedId);
+    if (!p || isTest(p.type) || !isPending(p.status) || p.type === type) return ['Tej jednostki nie można zastąpić.'];
+    const v = this.replaceViolations(plannedId, type);
+    if (v.length) return v;
+    const ts = now();
+    const next: PlannedWorkout = { ...p, type, updatedAt: ts };
+    const ev = this.event({
+      cycleId: p.cycleId, kind: 'manual', workoutType: type, from: TYPE_SHORT[p.type], to: TYPE_SHORT[type],
+      reason: `${TYPE_SHORT[p.type]} (${formatDate(p.date)}) zastąpiony jednostką ${TYPE_SHORT[type]}.${reason ? ' ' + reason : ''} Poziom obciążenia bez zmian.`,
+      sourceIds: [p.id],
+    });
+    await this.persist([{ store: 'planned', put: [next] }, { store: 'events', put: [ev] }]);
+    this.upsert(this.planned, [next]);
+    this.upsert(this.events, [ev]);
+    return [];
+  }
+
   async restorePlanned(plannedId: string): Promise<void> {
     const p = this.getPlanned(plannedId)!;
     const next: PlannedWorkout = { ...p, status: p.moves.length ? 'moved' : 'planned', skipReason: undefined, skipNote: undefined, updatedAt: now() };

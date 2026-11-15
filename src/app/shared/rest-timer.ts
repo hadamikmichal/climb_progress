@@ -23,10 +23,11 @@ import { Component, computed, DestroyRef, inject, input, signal } from '@angular
     </div>
   `,
   styles: `
-    .timer { display: flex; flex-direction: column; gap: 8px; padding: 14px; border-radius: var(--radius); background: var(--surface-2); }
-    .time { font-size: 2.6rem; font-weight: 800; text-align: center; letter-spacing: 0.02em; }
-    .running .time { color: var(--accent); }
-    .finished .time { color: var(--ok); }
+    .timer { display: flex; flex-direction: column; gap: 8px; padding: 14px 16px; border-radius: var(--radius); border: 1px solid var(--border); background: var(--surface); }
+    .time { font: 500 2.6rem/1.05 var(--font-mono); text-align: center; letter-spacing: -0.04em; font-variant-numeric: tabular-nums; }
+    .running { border-color: var(--text); }
+    .running .time { color: var(--accent-strong); }
+    .finished .time { color: var(--accent-strong); }
   `,
 })
 export class RestTimer {

@@ -14,6 +14,19 @@ import { DatePlPipe } from '../../shared/pipes';
   selector: 'app-profile',
   imports: [RouterLink, FormsModule, DatePlPipe],
   templateUrl: './profile.html',
+  styles: `
+    .pf-sum { font-size: 0.85rem; }
+    .pf-sec { display: flex; flex-direction: column; gap: var(--s4); }
+    .pf-head { display: flex; align-items: baseline; gap: var(--s3); padding-top: var(--s2); border-top: 1px solid var(--border-strong); }
+    .pf-head.sub { border-top-color: var(--border); margin-top: var(--s3); }
+    .pf-head .num { font-size: 0.75rem; color: var(--muted); }
+    .pf-head h2 { flex: 1; }
+    .pf-h4 { margin-top: var(--s3); padding-bottom: 6px; border-bottom: 1px solid var(--border); }
+    .pf-save { align-self: flex-start; }
+    .cyc { display: flex; flex-direction: column; gap: 2px; }
+    .cyc small { font-size: 0.78rem; }
+    @media (max-width: 559px) { .pf-save { align-self: stretch; } }
+  `,
 })
 export class ProfilePage {
   protected readonly store = inject(AppStore);
@@ -30,7 +43,6 @@ export class ProfilePage {
   protected readonly params = signal<TrainingParams | null>(this.store.cycle() ? structuredClone(this.store.cycle()!.params) : null);
   protected readonly msg = signal<{ kind: 'ok' | 'bad' | 'info'; text: string } | null>(null);
   protected readonly busy = signal(false);
-  protected readonly theme = signal<'dark' | 'light'>(document.documentElement.dataset['theme'] === 'light' ? 'light' : 'dark');
 
   protected readonly dayErrors = computed(() => validateTrainingDays(this.p().trainingDays));
   protected readonly cycles = computed(() => [...this.store.cycles()].sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1)));
@@ -147,12 +159,4 @@ export class ProfilePage {
     this.msg.set({ kind: 'ok', text: 'Rozpoczęto nowy cykl – zacznij od testu początkowego na ekranie Start.' });
   }
 
-  protected toggleTheme() {
-    const t = this.theme() === 'dark' ? 'light' : 'dark';
-    this.theme.set(t);
-    document.documentElement.dataset['theme'] = t;
-    try {
-      localStorage.setItem('cp-theme', t);
-    } catch { /* tryb prywatny */ }
-  }
 }

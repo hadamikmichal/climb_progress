@@ -1,5 +1,7 @@
 /** Sygnał końca odliczania: wibracja + krótki dźwięk (bez zależności) */
 export function beep(times = 1): void {
+  const active = (navigator as unknown as { userActivation?: { hasBeenActive: boolean } }).userActivation?.hasBeenActive ?? true;
+  if (!active) return;
   try { navigator.vibrate?.(times > 1 ? [200, 100, 200, 100, 200] : [200, 100, 200]); } catch { /* brak wsparcia */ }
   try {
     const Ctx = (globalThis as unknown as { AudioContext?: typeof AudioContext }).AudioContext;

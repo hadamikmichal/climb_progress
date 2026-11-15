@@ -32,12 +32,12 @@ interface TestDraft {
   templateUrl: './test-session.html',
   styles: `
     .seg { display: flex; gap: 6px; }
-    .seg button { flex: 1; min-height: 48px; border-radius: 10px; border: 1px solid var(--border); background: var(--surface-2); color: var(--muted); font: inherit; font-weight: 700; cursor: pointer; }
-    .seg button.on { color: var(--text); border-color: var(--accent); background: var(--surface-3); }
-    .seg button.done { color: var(--ok); }
+    .seg button { flex: 1; min-height: 48px; border-radius: 6px; border: 1px solid var(--border); background: transparent; color: var(--muted); font: 500 0.75rem var(--font-mono); text-transform: uppercase; letter-spacing: 0.06em; cursor: pointer; }
+    .seg button.on { color: var(--select-ink); border-color: var(--select-bg); background: var(--select-bg); }
+    .seg button.done { color: var(--text); }
     ol { margin: 0; padding-left: 20px; display: flex; flex-direction: column; gap: 4px; }
     .stepper { display: grid; grid-template-columns: 56px 1fr 56px; align-items: center; gap: 8px; text-align: center; }
-    .stepper .num { font-size: 1.6rem; font-weight: 800; }
+    .stepper .num { font: 500 1.8rem var(--font-mono); }
     .caps { text-transform: uppercase; }
   `,
 })

@@ -2,78 +2,102 @@ import { Component, input } from '@angular/core';
 
 export type FigureKind = 'pullup' | 'finger' | 'core' | 'deadhang' | 'route' | 'recovery';
 
-/** Schematyczne grafiki poglądowe pozycji testowych (linie w kolorze tekstu – działają w obu motywach) */
+const LABELS: Record<FigureKind, string> = {
+  pullup: 'FIG. 02 · PULL-UP',
+  finger: 'FIG. 03 · MAX HANG',
+  core: 'FIG. 04 · L-SIT',
+  deadhang: 'FIG. 05 · DEAD HANG',
+  route: 'FIG. 06 · 4 × 6A',
+  recovery: 'FIG. 07 · RECOVERY',
+};
+
+/**
+ * Schematy pozycji testowych w stylu rysunku technicznego: cienkie linie w kolorze tekstu,
+ * podpisy mono, jeden element w Signal Lime wskazujący to, co jest mierzone.
+ */
 @Component({
   selector: 'app-test-figure',
   template: `
-    <svg viewBox="0 0 160 110" role="img" [attr.aria-label]="caption()" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
-      @switch (kind()) {
-        @case ('pullup') {
-          <line x1="20" y1="12" x2="140" y2="12" stroke-width="5" />
-          <circle cx="80" cy="22" r="8" />
-          <path d="M62 12 L66 34 L80 32 L94 34 L98 12" />
-          <path d="M80 30 L80 66 M80 66 L72 98 M80 66 L88 98" />
-          <path d="M70 76 h20 v10 h-20 z" stroke-width="2" />
-          <text x="102" y="84" font-size="10" fill="currentColor" stroke="none">+kg</text>
-          <path d="M40 18 l0 14 M120 18 l0 14" stroke-dasharray="3 4" stroke-width="2" />
-          <text x="104" y="30" font-size="9" fill="currentColor" stroke="none">broda nad drążkiem</text>
+    <figure class="fig">
+      <figcaption class="lbl">{{ labels[kind()] }}</figcaption>
+      <svg viewBox="0 0 160 110" role="img" [attr.aria-label]="caption() || labels[kind()]" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+        @switch (kind()) {
+          @case ('pullup') {
+            <line x1="20" y1="14" x2="140" y2="14" stroke-width="3" />
+            <circle cx="80" cy="24" r="7" />
+            <path d="M62 14 L66 34 L80 32 L94 34 L98 14" />
+            <path d="M80 31 L80 64 M80 64 L73 98 M80 64 L87 98" />
+            <rect x="71" y="72" width="18" height="10" rx="1.5" class="acc" />
+            <path d="M104 14 v12" stroke-dasharray="2 3" />
+            <text x="108" y="24">broda ↑</text>
+            <text x="96" y="80">+kg</text>
+          }
+          @case ('finger') {
+            <rect x="24" y="10" width="112" height="14" rx="2" />
+            <path d="M58 24 h14 M88 24 h14" stroke-width="4" class="acc-stroke" />
+            <path d="M65 26 L67 44 M95 26 L93 44" />
+            <circle cx="80" cy="52" r="7" />
+            <path d="M67 44 L80 46 L93 44 M80 59 L80 88 M80 88 L74 104 M80 88 L86 104" />
+            <rect x="72" y="66" width="16" height="9" rx="1.5" />
+            <text x="106" y="46">20 mm</text>
+            <text x="106" y="58">half crimp</text>
+            <text x="106" y="70">5 s</text>
+          }
+          @case ('core') {
+            <path d="M30 100 v-36 M130 100 v-36" stroke-width="3" />
+            <path d="M22 64 h16 M122 64 h16" stroke-width="3" />
+            <circle cx="58" cy="30" r="7" />
+            <path d="M38 64 L54 46 M122 64 L106 46" />
+            <path d="M58 37 L63 66" />
+            <path d="M63 66 L118 66" stroke-width="3" class="acc-stroke" />
+            <text x="70" y="86">90° · nogi poziomo</text>
+          }
+          @case ('deadhang') {
+            <line x1="20" y1="14" x2="140" y2="14" stroke-width="3" />
+            <path d="M66 14 L70 32 M94 14 L90 32" />
+            <circle cx="80" cy="38" r="7" />
+            <path d="M70 32 L80 46 L90 32 M80 45 L80 78 M80 78 L74 104 M80 78 L86 104" />
+            <circle cx="122" cy="44" r="12" />
+            <path d="M122 44 L122 36" class="acc-stroke" stroke-width="2.5" />
+            <text x="108" y="72">max 6:00</text>
+          }
+          @case ('route') {
+            <path d="M44 104 L44 8 L116 8" stroke-dasharray="3 4" />
+            <path d="M116 8 L116 104" stroke-width="3" />
+            @for (y of [24, 42, 60, 78, 96]; track y) { <circle [attr.cx]="108 - (y % 3) * 4" [attr.cy]="y" r="3" fill="currentColor" stroke="none" /> }
+            <circle cx="108" cy="12" r="4" class="acc" stroke="none" />
+            <text x="52" y="40">~13 m</text>
+            <text x="52" y="54">6a × 4</text>
+            <text x="52" y="68">rest 3:00</text>
+          }
+          @case ('recovery') {
+            <path d="M18 100 H150 M18 100 V8" />
+            <path d="M22 18 C60 30 70 60 92 70 S130 88 146 92" class="acc-stroke" stroke-width="2" />
+            @for (p of points; track p[0]) { <circle [attr.cx]="p[0]" [attr.cy]="p[1]" r="3" fill="currentColor" stroke="none" /> }
+            <text x="15" y="108">0</text>
+            <text x="58" y="108">1</text>
+            <text x="100" y="108">2</text>
+            <text x="140" y="108">3 min</text>
+          }
         }
-        @case ('finger') {
-          <rect x="24" y="8" width="112" height="16" rx="3" />
-          <path d="M60 24 h12 M88 24 h12" stroke-width="5" />
-          <path d="M66 26 L68 44 M94 26 L92 44" />
-          <circle cx="80" cy="52" r="8" />
-          <path d="M68 44 L80 46 L92 44 M80 60 L80 90 M80 90 L74 106 M80 90 L86 106" />
-          <path d="M72 70 h16 v9 h-16 z" stroke-width="2" />
-          <text x="102" y="48" font-size="9" fill="currentColor" stroke="none">half crimp</text>
-          <text x="102" y="60" font-size="9" fill="currentColor" stroke="none">łokcie proste</text>
-          <text x="102" y="72" font-size="9" fill="currentColor" stroke="none">5 s</text>
-        }
-        @case ('core') {
-          <path d="M30 98 v-34 M130 98 v-34" stroke-width="5" />
-          <path d="M22 64 h16 M122 64 h16" stroke-width="5" />
-          <circle cx="58" cy="30" r="8" />
-          <path d="M38 64 L54 46 M122 64 L106 46" />
-          <path d="M58 38 L64 66 L118 66" />
-          <path d="M64 66 L118 66" stroke-dasharray="0" />
-          <text x="72" y="86" font-size="9" fill="currentColor" stroke="none">nogi poziomo (L-sit)</text>
-        }
-        @case ('deadhang') {
-          <line x1="20" y1="12" x2="140" y2="12" stroke-width="5" />
-          <circle cx="80" cy="34" r="8" />
-          <path d="M66 12 L70 30 M94 12 L90 30 M80 42 L80 76 M80 76 L74 104 M80 76 L86 104 M70 30 L80 44 L90 30" />
-          <text x="100" y="48" font-size="9" fill="currentColor" stroke="none">nachwyt, oburącz</text>
-          <text x="100" y="60" font-size="9" fill="currentColor" stroke="none">maks. 6:00</text>
-        }
-        @case ('route') {
-          <path d="M40 104 L40 6" stroke-width="2" stroke-dasharray="4 4" />
-          <path d="M40 6 L120 6" stroke-width="2" />
-          <path d="M120 6 L120 104" stroke-width="5" />
-          @for (y of [16, 34, 52, 70, 88]; track y) { <circle [attr.cx]="112 - (y % 3) * 4" [attr.cy]="y" r="3.5" fill="currentColor" /> }
-          <text x="50" y="40" font-size="10" fill="currentColor" stroke="none">~13 m</text>
-          <text x="50" y="56" font-size="10" fill="currentColor" stroke="none">4 × 6a</text>
-          <text x="50" y="72" font-size="10" fill="currentColor" stroke="none">przerwa 3:00</text>
-        }
-        @case ('recovery') {
-          <path d="M18 100 H150 M18 100 V8" stroke-width="2" />
-          <path d="M22 18 C60 30 70 60 92 70 S130 88 146 92" />
-          @for (x of [22, 64, 106, 146]; track x) { <circle [attr.cx]="x" [attr.cy]="x === 22 ? 18 : x === 64 ? 46 : x === 106 ? 76 : 92" r="4" fill="currentColor" /> }
-          <text x="14" y="108" font-size="8" fill="currentColor" stroke="none">0</text>
-          <text x="58" y="108" font-size="8" fill="currentColor" stroke="none">1 min</text>
-          <text x="100" y="108" font-size="8" fill="currentColor" stroke="none">2 min</text>
-          <text x="134" y="108" font-size="8" fill="currentColor" stroke="none">3 min</text>
-        }
-      }
-    </svg>
-    @if (caption()) { <p class="cap">{{ caption() }}</p> }
+      </svg>
+      @if (caption()) { <p class="cap">{{ caption() }}</p> }
+    </figure>
   `,
   styles: `
-    :host { display: block; color: var(--muted); }
-    svg { width: 100%; max-width: 260px; height: auto; display: block; margin: 0 auto; }
-    .cap { text-align: center; font-size: 0.78rem; color: var(--faint); margin-top: 4px; }
+    :host { display: block; color: var(--text); }
+    .fig { margin: 0; padding: 10px 12px 8px; border: 1px solid var(--border); border-radius: var(--radius); display: flex; flex-direction: column; gap: 4px; }
+    .lbl { font-family: var(--font-mono); font-size: 0.62rem; letter-spacing: 0.1em; color: var(--muted); }
+    svg { width: 100%; max-width: 240px; height: auto; display: block; margin: 0 auto; }
+    svg text { font-family: var(--font-mono); font-size: 7.5px; letter-spacing: 0.04em; fill: var(--muted); stroke: none; }
+    .acc { fill: var(--accent); stroke: var(--accent-strong); }
+    .acc-stroke { stroke: var(--accent-strong); }
+    .cap { font-family: var(--font-mono); font-size: 0.68rem; color: var(--muted); }
   `,
 })
 export class TestFigure {
   readonly kind = input.required<FigureKind>();
   readonly caption = input('');
+  protected readonly labels = LABELS;
+  protected readonly points = [[22, 18], [64, 46], [106, 76], [146, 92]];
 }

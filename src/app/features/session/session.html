@@ -1,317 +1,398 @@
 @let p = planned();
 @let t = template();
-<div class="page session">
+<div class="player">
   @if (!p || !t) {
-    <div class="card"><h2>Nie znaleziono treningu</h2><a class="btn" routerLink="/plan">Wróć do planu</a></div>
+    <div class="pad"><h2>Nie znaleziono treningu</h2><a class="btn" routerLink="/plan">Wróć do planu</a></div>
   } @else {
-    <header class="s-head">
-      <div class="grow">
-        <div class="eyebrow">{{ typeName() }}@if (draft()?.deload) { · deload }@if (draft()?.light) { · lżejsza wersja }</div>
-        <h1 class="caps">{{ t.name }}</h1>
+    <!-- ============ PASEK GÓRNY ============ -->
+    <header class="bar">
+      <a class="icon-btn" routerLink="/" aria-label="Wyjdź z treningu"><app-icon name="x" /></a>
+      <div class="bar-title">
+        <span class="eyebrow">{{ typeName() }}@if (draft()?.deload) { · deload }@if (draft()?.light) { · lżej }</span>
+        <span class="bar-name">{{ t.name }}</span>
       </div>
-      @if (phase() === 'active') { <span class="tag num">{{ elapsed() }} min</span> }
-      @if (phase() !== 'result') { <a class="btn sm" routerLink="/">Wyjdź</a> }
+      @if (phase() === 'active') {
+        <span class="mono bar-time">{{ elapsed() }}′</span>
+        <button class="icon-btn" type="button" (click)="menu.set(true)" aria-label="Więcej opcji"><app-icon name="more" /></button>
+      }
     </header>
-
-    <!-- ============ START ============ -->
-    @if (phase() === 'setup') {
-      <section class="card">
-        <p class="muted">{{ t.goal }}</p>
-        <ul class="presc">@for (l of prescLines(); track l) { <li>{{ l }}</li> }</ul>
-        @if (presc()?.deload) { <div class="note warn">Tydzień deload – objętość obniżona. Sesja nie wpływa na progresję.</div> }
-        @for (s of t.safetyNotes; track s) { <p class="faint">{{ s }}</p> }
-      </section>
-
-      @if (partial()) {
-        <div class="note info">Zapis częściowego wykonania: odhacz tylko to, co faktycznie zostało zrobione. Trening zostanie zapisany jako częściowy i nie będzie traktowany jak pełne wykonanie.</div>
-      }
-
-      @if (assessment(); as a) {
-        <div class="note" [class.ok]="a.level === 'go'" [class.warn]="a.level === 'easy'" [class.bad]="a.level === 'rest'">
-          <strong>Gotowość: {{ a.title }}.</strong>
-          @for (m of a.messages; track m) { <p>{{ m }}</p> }
-        </div>
-      } @else {
-        <div class="note info">
-          Nie wypełniono dziś oceny gotowości.
-          <a [routerLink]="['/readiness']" [queryParams]="{ back: '/session/' + p.id }">Oceń gotowość (30 s)</a>
-        </div>
-      }
-
-      <div class="stack-sm">
-        @if (!assessment() || assessment()!.level === 'go') {
-          <button class="btn primary xl block" type="button" (click)="start(false)">Rozpocznij trening</button>
-          <button class="btn block" type="button" (click)="start(true)">Lżejsza wersja (nie liczy się do progresji)</button>
-        } @else {
-          <button class="btn primary xl block" type="button" (click)="start(true)">Rozpocznij lżejszą wersję</button>
-          @if (assessment()!.level === 'easy') {
-            <button class="btn block" type="button" (click)="start(false)">Mimo to pełny trening</button>
-          }
-          <a class="btn block" routerLink="/plan">Odpuszczam dziś – wróć do planu</a>
+    @if (phase() === 'active') {
+      <div class="segments" role="list" aria-label="Postęp sesji">
+        @for (s of steps(); track s.id; let i = $index) {
+          <button type="button" role="listitem" class="seg" [class.on]="i === stepIndex()" [class.done]="stepDone(s)" (click)="goStep(i)" [attr.aria-label]="s.name"><span></span></button>
         }
       </div>
+    }
+
+    <!-- ============ BRIEFING ============ -->
+    @if (phase() === 'setup') {
+      <section class="pad stage enter">
+        <span class="eyebrow">{{ p.date | datePl }} · ~{{ t.durationMin }} min · {{ t.intensity }}</span>
+        <h1 class="hero-title">{{ t.name }}</h1>
+        <p class="lead">{{ t.goal }}</p>
+        <ol class="brief">
+          @for (l of prescLines(); track l) { <li class="mono">{{ l }}</li> }
+        </ol>
+        @if (presc()?.deload) { <div class="note warn">Tydzień deload – objętość obniżona. Sesja nie wpływa na progresję.</div> }
+        @if (partial()) { <div class="note info">Zapis częściowego wykonania: odhacz tylko to, co faktycznie zostało zrobione.</div> }
+        @if (assessment(); as a) {
+          <div class="note" [class.ok]="a.level === 'go'" [class.warn]="a.level !== 'go'">
+            <strong>Gotowość: {{ a.title }}.</strong> @for (m of a.messages; track m) { {{ m }} }
+          </div>
+        } @else {
+          <a class="note info link" [routerLink]="['/readiness']" [queryParams]="{ back: '/session/' + p.id }">Nie oceniłeś dziś gotowości – zrób to w 30 s <app-icon name="arrow-right" /></a>
+        }
+        <ul class="safety">@for (s of t.safetyNotes; track s) { <li>{{ s }}</li> }</ul>
+      </section>
+      <footer class="dock">
+        @if (!assessment() || assessment()!.level === 'go') {
+          <button class="btn primary xl" type="button" (click)="start(false)"><app-icon name="play" /> Rozpocznij sesję</button>
+          <button class="btn ghost block" type="button" (click)="start(true)">Lżejsza wersja (bez wpływu na progresję)</button>
+        } @else {
+          <button class="btn primary xl" type="button" (click)="start(true)"><app-icon name="play" /> Rozpocznij lżejszą wersję</button>
+          @if (assessment()!.level === 'easy') { <button class="btn ghost block" type="button" (click)="start(false)">Mimo to pełny trening</button> }
+          <a class="btn ghost block" routerLink="/plan">Odpuszczam dziś</a>
+        }
+      </footer>
     }
 
     <!-- ============ AKTYWNY TRENING ============ -->
     @if (phase() === 'active' && draft(); as d) {
-      @if (d.forcePartial) { <div class="note info">Zapisujesz trening częściowy – odhacz tylko wykonane elementy.</div> }
+      @let ex = step()!;
+      @let tm = timer();
+      <section class="pad stage" [attr.data-kind]="ex.kind">
+        <span class="eyebrow">Krok {{ (stepIndex() + 1).toString().padStart(2, '0') }} / {{ steps().length.toString().padStart(2, '0') }}</span>
+        <h1 class="stage-title">{{ ex.name }}</h1>
 
-      @for (ex of t.exercises; track ex.id) {
-        @let log = exLog(ex.id);
-        <section class="card ex" [class.ex-done]="log?.done">
-
-          <div class="card-title">
-            <h2>{{ ex.name }}</h2>
-            @if (ex.durationMin) { <span class="tag">~{{ ex.durationMin }} min</span> }
-          </div>
-          <p class="muted">{{ ex.description }}</p>
-
-          <!-- Rozgrzewka / lista kontrolna -->
-          @if (ex.kind === 'warmup' || ex.kind === 'technique') {
-            @if (ex.checklist?.length) {
-              <div class="checks">
-                @for (c of ex.checklist; track c) {
-                  <button type="button" class="check" [class.on]="log?.checked?.includes(c)" (click)="toggleCheck(ex.id, c, ex.checklist!)">
-                    <span class="box">{{ log?.checked?.includes(c) ? '✓' : '' }}</span>{{ c }}
-                  </button>
-                }
-              </div>
-            }
-            @if (ex.kind === 'warmup') {
-              <button type="button" class="btn block" [class.primary]="!log?.done" (click)="markDone(ex.id, ex.checklist ?? [])">
-                {{ log?.done ? '✓ Rozgrzewka zrobiona' : 'Oznacz rozgrzewkę jako zrobioną' }}
+        <!-- ---------- ROZGRZEWKA ---------- -->
+        @if (ex.kind === 'warmup') {
+          @let log = exLog(ex.id);
+          <p class="lead">{{ ex.description }}</p>
+          <div class="checks">
+            @for (c of ex.checklist ?? []; track c) {
+              <button type="button" class="check" [class.on]="log?.checked?.includes(c)" (click)="toggleCheck(ex.id, c, ex.checklist!)">
+                <span class="box">@if (log?.checked?.includes(c)) { <app-icon name="check" [stroke]="3" /> }</span>{{ c }}
               </button>
             }
-          }
-
-          <!-- A: Max Hangs -->
-          @if (ex.kind === 'hangboard' && d.hang; as h) {
-            @if (h.blocked) {
-              <div class="note bad">Zwisy wyłączone na dziś (ból lub obniżona gotowość). Nie nadrabiamy ich – przejdź do kolejnej części albo zakończ trening.</div>
-              @if (!assessment() || assessment()!.allowHangboard) {
-                <button class="btn" type="button" (click)="hangField('blocked', false)">Jednak wykonuję zwisy</button>
-              }
-            } @else {
-              <div class="hang-params">
-                <strong>{{ h.setsPlanned }} × {{ h.hangSec }} s</strong> ·
-                {{ gripLabels[h.grip] }} · {{ h.edge }}@if (h.edgeSizeMm) { ({{ h.edgeSizeMm }} mm) } · {{ formatLoad(h) }}
-                <button class="btn ghost sm" type="button" (click)="editHang.set(!editHang())">{{ editHang() ? 'Gotowe' : 'Zmień' }}</button>
-              </div>
-              @if (editHang()) {
-                <div class="grid-2">
-                  <label class="field">Krawądka / chwyt
-                    <input [ngModel]="h.edge" (ngModelChange)="hangField('edge', $event)" />
-                  </label>
-                  <label class="field">Rozmiar (mm, jeśli znasz)
-                    <input type="number" inputmode="numeric" [ngModel]="h.edgeSizeMm" (ngModelChange)="hangField('edgeSizeMm', $event === '' || $event == null ? null : +$event)" />
-                  </label>
-                  <label class="field">Uchwyt
-                    <select [ngModel]="h.grip" (ngModelChange)="hangField('grip', $event)">
-                      @for (g of grips; track g) { <option [value]="g">{{ gripLabels[g] }}</option> }
-                    </select>
-                  </label>
-                  <label class="field">Czas zwisu (s)
-                    <input type="number" inputmode="numeric" min="5" max="15" [ngModel]="h.hangSec" (ngModelChange)="hangField('hangSec', +$event)" />
-                  </label>
-                  <label class="field">Obciążenie dodatkowe (kg)
-                    <input type="number" inputmode="decimal" min="0" step="0.5" [ngModel]="h.addedKg" (ngModelChange)="hangField('addedKg', +$event || 0)" />
-                  </label>
-                  <label class="field">Odciążenie (kg)
-                    <input type="number" inputmode="decimal" min="0" step="0.5" [ngModel]="h.assistKg" (ngModelChange)="hangField('assistKg', +$event || 0)" />
-                  </label>
-                </div>
-                <p class="faint">Zmiana parametrów na miejscu zostanie zapisana w historii zwisów. Wyniki z różnych krawądek nie są ze sobą porównywane.</p>
-              }
-
-              <div class="eyebrow">Serie – dotknij po każdej</div>
-              <div class="sets">
-                @for (i of range(h.setsPlanned); track i) {
-                  <button type="button" class="set-btn" [class.on]="$index < h.setsDone" (click)="setHangSets($index + 1)">{{ $index < h.setsDone ? '✓' : $index + 1 }}</button>
-                }
-              </div>
-              <div class="grid-md-2">
-                <app-rest-timer [seconds]="h.hangSec" label="Zwis" startLabel="Start zwisu" />
-                <app-rest-timer [seconds]="d.params.hangboard.restSec" label="Przerwa między seriami" />
-              </div>
-
-              <label class="field">RPE zwisów (cel ok. 8)</label>
-              <app-scale [min]="1" [max]="10" [hotFrom]="9" [value]="h.rpe" (valueChange)="hangField('rpe', $event)" low="lekko" high="maksimum" />
-              <label class="field">Ból lub dyskomfort palców/stawów?</label>
-              <app-yes-no [value]="h.pain" (valueChange)="hangField('pain', $event)" [warnOnYes]="true" />
-              @if (h.pain) {
-                <div class="note bad">
-                  Przerwij zwisy. Nie kontynuuj ciężkiej chwytotablicy przy bólu. Kolejne zwisy zostaną odciążone przez moduł adaptacji.
-                  @if (h.setsDone < h.setsPlanned) { <button class="btn sm danger" type="button" (click)="stopHangs()">Zakończ zwisy na {{ h.setsDone }} seriach</button> }
-                </div>
-              }
-            }
-          }
-
-          <!-- A: trudne drogi -->
-          @if (ex.kind === 'hard_routes') {
-            <p class="faint">Zakres {{ d.params.hardRoutes.gradeFrom }}–{{ d.params.hardRoutes.gradeTo }} · próby: {{ hardAttempts().length }}/{{ d.params.hardRoutes.maxAttempts }}</p>
-            @if (hardAttempts().length >= d.params.hardRoutes.maxAttempts) {
-              <div class="note warn">Limit prób osiągnięty. Kończ, zanim palce będą całkowicie zmęczone.</div>
-            }
-            @for (r of hardAttempts(); track r.id; let i = $index) {
-              <div class="route" [class.sent]="r.state === 'sent'" [class.fell]="r.state === 'fell'">
-                <span class="num idx">{{ i + 1 }}</span>
-                <select class="grade" [ngModel]="r.grade" (ngModelChange)="routeField(r.id, 'grade', $event)">
-                  @for (g of grades; track g) { <option [value]="g">{{ g }}</option> }
-                </select>
-                <button type="button" class="pill" [class.on]="r.state === 'sent'" (click)="routeField(r.id, 'state', r.state === 'sent' ? 'fell' : 'sent')">{{ r.state === 'sent' ? 'Ukończona' : 'Odpadł' }}</button>
-                <button type="button" class="pill" [class.on]="r.cruxSent" (click)="routeField(r.id, 'cruxSent', !r.cruxSent)">Crux {{ r.cruxSent ? '✓' : '✗' }}</button>
-                <button type="button" class="btn ghost sm" (click)="removeRoute(r.id)" aria-label="Usuń próbę">✕</button>
-              </div>
-            }
-            <div class="add-row">
-              <select [(ngModel)]="newGrade" aria-label="Wycena próby">
-                <option value="">{{ d.params.hardRoutes.gradeFrom }}</option>
-                @for (g of grades; track g) { <option [value]="g">{{ g }}</option> }
-              </select>
-              <button class="btn primary big" type="button" (click)="addAttempt(true)">+ Ukończona</button>
-              <button class="btn big" type="button" (click)="addAttempt(false)">+ Odpadł</button>
-            </div>
-            <app-rest-timer [seconds]="240" label="Pełna przerwa między próbami" />
-          }
-
-          <!-- B: drogi tlenowe -->
-          @if (ex.kind === 'routes') {
-            <p class="faint">Ukończone/zaliczone: {{ routesDone() }}/{{ d.routes.length }} · pompowanie maks. {{ d.params.aerobic.targetMaxPump }}/10</p>
-            @for (r of d.routes; track r.id; let i = $index) {
-              <ng-container *ngTemplateOutlet="routeRow; context: { r: r, i: i, max: d.params.aerobic.targetMaxPump }" />
-            }
-            <button class="btn ghost sm" type="button" (click)="addExtraRoute()">+ Dodatkowa droga</button>
-            <app-rest-timer [seconds]="d.params.aerobic.restMin * 60" [label]="'Odpoczynek między drogami: ' + d.params.aerobic.restMin + ' min'" />
-          }
-
-          <!-- C: obwody -->
-          @if (ex.kind === 'circuit') {
-            <div class="seg">
-              @for (s of d.sets; track s.setIndex) {
-                <button type="button" [class.on]="d.currentSet === s.setIndex" (click)="goSet(s.setIndex)">Seria {{ s.setIndex }}</button>
-              }
-            </div>
-            <h3 class="caps">Seria {{ d.currentSet }}/{{ d.sets.length }}</h3>
-            @for (r of setRoutes(); track r.id; let i = $index) {
-              <ng-container *ngTemplateOutlet="routeRow; context: { r: r, i: i, max: 8 }" />
-            }
-            <app-rest-timer [seconds]="d.params.powerEndurance.restBetweenRoutesMin * 60" [label]="'Odpoczynek między drogami: ' + d.params.powerEndurance.restBetweenRoutesMin + ' min'" />
-
-            @if (setFinished()) {
-              @let sl = setLog(d.currentSet);
-              @if (sl) {
-                <div class="set-log">
-                  <h3>Po serii {{ d.currentSet }}</h3>
-                  <label class="field">RPE serii</label>
-                  <app-scale [min]="1" [max]="10" [hotFrom]="9" [value]="sl.rpe" (valueChange)="setField(d.currentSet, 'rpe', $event)" />
-                  <label class="field">Pompowanie przedramion</label>
-                  <app-scale [min]="0" [max]="10" [hotFrom]="8" [value]="sl.pump" (valueChange)="setField(d.currentSet, 'pump', $event)" low="brak" high="skrajne" />
-                  <label class="field">Uwagi
-                    <input [ngModel]="sl.notes" (ngModelChange)="setField(d.currentSet, 'notes', $event)" placeholder="np. odpadnięcie na 3. drodze" />
-                  </label>
-                  @if (d.currentSet < d.sets.length) {
-                    <app-rest-timer [seconds]="d.params.powerEndurance.restBetweenSetsMin * 60" [label]="'Przerwa między seriami: ' + d.params.powerEndurance.restBetweenSetsMin + ' min'" />
-                    <button class="btn primary big block" type="button" (click)="goSet(d.currentSet + 1)">Następna seria →</button>
-                  }
-                </div>
-              }
-            }
-          }
-        </section>
-      }
-
-      <div class="finish-bar">
-        <button class="btn primary xl block" type="button" (click)="toSummary()">Zakończ trening</button>
-      </div>
-      <button class="btn ghost block" type="button" (click)="discard()">Porzuć trening</button>
-
-      <ng-template #routeRow let-r="r" let-i="i" let-max="max">
-        <div class="route" [class.sent]="r.state === 'sent'" [class.fell]="r.state === 'fell'">
-          <span class="num idx">{{ i + 1 }}</span>
-          <select class="grade" [ngModel]="r.grade" (ngModelChange)="routeField(r.id, 'grade', $event)" aria-label="Wycena">
-            @for (g of grades; track g) { <option [value]="g">{{ g }}</option> }
-          </select>
-          <button type="button" class="tick" [class.on]="r.state === 'sent'" (click)="setRouteState(r.id, 'sent')" aria-label="Ukończona">✓</button>
-          <button type="button" class="tick bad" [class.on]="r.state === 'fell'" (click)="setRouteState(r.id, 'fell')" aria-label="Odpadnięcie">✗</button>
-          <button type="button" class="btn ghost sm" (click)="openRoute.set(openRoute() === r.id ? null : r.id)">{{ r.pump != null ? 'P ' + r.pump : 'Pompa' }}</button>
-        </div>
-        @if (openRoute() === r.id) {
-          <div class="route-more">
-            <label class="field">Pompowanie po drodze {{ i + 1 }}</label>
-            <app-scale [min]="0" [max]="10" [hotFrom]="max + 1" [value]="r.pump" (valueChange)="routeField(r.id, 'pump', $event); openRoute.set(null)" low="brak" high="skrajne" />
           </div>
         }
-      </ng-template>
+
+        <!-- ---------- MAX HANGS ---------- -->
+        @if (ex.kind === 'hangboard' && d.hang; as h) {
+          @if (h.blocked) {
+            <div class="note warn">Zwisy wyłączone na dziś (ból lub obniżona gotowość). Nie nadrabiamy ich – przejdź dalej.</div>
+            @if (!assessment() || assessment()!.allowHangboard) {
+              <button class="btn ghost" type="button" (click)="hangField('blocked', false)">Jednak wykonuję zwisy</button>
+            }
+          } @else {
+            <div class="counter">
+              <span class="eyebrow">Seria</span>
+              <span class="mono big-count">{{ Math.min(h.setsPlanned, h.setsDone + 1).toString().padStart(2, '0') }}<span class="of"> / {{ h.setsPlanned.toString().padStart(2, '0') }}</span></span>
+            </div>
+            <div class="spec">
+              <span class="mono spec-main">{{ formatLoad(h) }}</span>
+              <span class="mono spec-sub">{{ h.hangSec }} s · {{ gripLabels[h.grip] }} · {{ h.edgeSizeMm ? h.edgeSizeMm + ' mm' : h.edge }}</span>
+            </div>
+
+            <div class="clock-block" [class.work]="tm?.kind === 'work'" [class.rest]="tm?.kind === 'rest'">
+              <span class="phase-label">{{ tm ? (tm.kind === 'work' ? 'Zwis' : 'Przerwa') : h.setsDone >= h.setsPlanned ? 'Serie zakończone' : 'Gotowy' }}{{ tm?.pausedAt ? ' · pauza' : '' }}</span>
+              <span class="mono clock">{{ tm ? clock(remaining()) : clock(h.setsDone >= h.setsPlanned ? 0 : h.hangSec) }}</span>
+              <div class="track"><span [style.width.%]="timerPct()"></span></div>
+              @if (tm?.kind === 'rest' && h.setsDone < h.setsPlanned) { <span class="next mono">Następnie: zwis {{ h.setsDone + 1 }} / {{ h.setsPlanned }}</span> }
+            </div>
+
+            <div class="sets" [style.grid-template-columns]="'repeat(' + h.setsPlanned + ', minmax(0, 1fr))'" role="group" aria-label="Zaliczone serie – korekta ręczna">
+              @for (i of range(h.setsPlanned); track i) {
+                <button type="button" class="set-btn" [class.on]="$index < h.setsDone" (click)="setHangSets($index + 1)" [attr.aria-label]="'Seria ' + ($index + 1)">{{ $index < h.setsDone ? '✓' : $index + 1 }}</button>
+              }
+            </div>
+
+            @if (h.setsDone >= h.setsPlanned || h.pain) {
+              <div class="form-block enter">
+                <label class="field">RPE zwisów (cel ok. 8)</label>
+                <app-scale [min]="1" [max]="10" [hotFrom]="9" [value]="h.rpe" (valueChange)="hangField('rpe', $event)" low="lekko" high="maksimum" />
+              </div>
+            }
+            <div class="form-block">
+              <label class="field">Ból lub dyskomfort palców / stawów?</label>
+              <app-yes-no [value]="h.pain" (valueChange)="hangField('pain', $event)" [warnOnYes]="true" />
+              @if (h.pain) {
+                <div class="note warn">Przerwij zwisy. Nie kontynuuj chwytotablicy przy bólu – kolejne zwisy zostaną odciążone.
+                  @if (h.setsDone < h.setsPlanned) { <button class="btn sm danger" type="button" (click)="stopHangs()">Zakończ na {{ h.setsDone }} seriach</button> }
+                </div>
+              }
+            </div>
+
+            <details class="more" [open]="editHang()" (toggle)="editHang.set($any($event.target).open)">
+              <summary>Parametry zwisu na miejscu</summary>
+              <div class="grid-2">
+                <label class="field">Krawądka<input [ngModel]="h.edge" (ngModelChange)="hangField('edge', $event)" /></label>
+                <label class="field">Głębokość (mm)<input type="number" inputmode="numeric" [ngModel]="h.edgeSizeMm" (ngModelChange)="hangField('edgeSizeMm', $event === '' || $event == null ? null : +$event)" /></label>
+                <label class="field">Uchwyt
+                  <select [ngModel]="h.grip" (ngModelChange)="hangField('grip', $event)">@for (g of grips; track g) { <option [value]="g">{{ gripLabels[g] }}</option> }</select>
+                </label>
+                <label class="field">Czas zwisu (s)<input type="number" inputmode="numeric" min="5" max="15" [ngModel]="h.hangSec" (ngModelChange)="hangField('hangSec', +$event)" /></label>
+                <label class="field">Obciążenie +kg<input type="number" inputmode="decimal" min="0" step="0.5" [ngModel]="h.addedKg" (ngModelChange)="hangField('addedKg', +$event || 0)" /></label>
+                <label class="field">Odciążenie −kg<input type="number" inputmode="decimal" min="0" step="0.5" [ngModel]="h.assistKg" (ngModelChange)="hangField('assistKg', +$event || 0)" /></label>
+              </div>
+              <p class="faint small">Zmiany zapisują się w historii zwisów. Wyniki z różnych krawądek nie są porównywane.</p>
+            </details>
+          }
+        }
+
+        <!-- ---------- DROGI TLENOWE (B) / OBWODY (C) ---------- -->
+        @if (ex.kind === 'routes' || ex.kind === 'circuit') {
+          @if (ex.kind === 'circuit') {
+            <div class="counter dual">
+              <div><span class="eyebrow">Seria</span><span class="mono big-count">{{ d.currentSet.toString().padStart(2, '0') }}<span class="of"> / {{ d.sets.length.toString().padStart(2, '0') }}</span></span></div>
+              <div><span class="eyebrow">Droga</span><span class="mono big-count">{{ currentRouteNo().toString().padStart(2, '0') }}<span class="of"> / {{ setRoutes().length.toString().padStart(2, '0') }}</span></span></div>
+            </div>
+          } @else {
+            <div class="counter">
+              <span class="eyebrow">Droga</span>
+              <span class="mono big-count">{{ currentRouteNo().toString().padStart(2, '0') }}<span class="of"> / {{ d.routes.length.toString().padStart(2, '0') }}</span></span>
+            </div>
+          }
+
+          @if (tm) {
+            <div class="clock-block rest">
+              <span class="phase-label">{{ tm.label }}{{ tm.pausedAt ? ' · pauza' : '' }}</span>
+              <span class="mono clock">{{ clock(remaining()) }}</span>
+              <div class="track"><span [style.width.%]="timerPct()"></span></div>
+              @if (currentRoute(); as r) { <span class="next mono">Następna droga · {{ r.grade }}</span> }
+            </div>
+            @if (lastRoute(); as lr) {
+              <div class="form-block">
+                <label class="field">Pompowanie po drodze ({{ lr.state === 'sent' ? 'ukończona' : 'odpadnięcie' }}, {{ lr.grade }})</label>
+                <app-scale [min]="0" [max]="10" [hotFrom]="(ex.kind === 'routes' ? d.params.aerobic.targetMaxPump : 7) + 1" [value]="lr.pump" (valueChange)="routeField(lr.id, 'pump', $event)" low="brak" high="skrajne" />
+              </div>
+            }
+          } @else if (currentRoute(); as r) {
+            <div class="spec route-spec">
+              <div class="grade-row">
+                <button class="icon-btn" type="button" (click)="bumpGrade(r.id, -1)" aria-label="Łatwiejsza wycena"><app-icon name="minus" /></button>
+                <span class="mono grade-big">{{ r.grade }}</span>
+                <button class="icon-btn" type="button" (click)="bumpGrade(r.id, 1)" aria-label="Trudniejsza wycena"><app-icon name="plus" /></button>
+              </div>
+              <span class="mono spec-sub">{{ store.profile().routeLengthM }} m@if (ex.kind === 'routes') { · pompowanie maks. {{ d.params.aerobic.targetMaxPump }}/10 }</span>
+            </div>
+          } @else if (ex.kind === 'circuit' && setFinished()) {
+            @let sl = setLog(d.currentSet);
+            @if (sl) {
+              <div class="form-block enter">
+                <h2>Po serii {{ d.currentSet }}</h2>
+                <label class="field">RPE serii</label>
+                <app-scale [min]="1" [max]="10" [hotFrom]="9" [value]="sl.rpe" (valueChange)="setField(d.currentSet, 'rpe', $event)" />
+                <label class="field">Pompowanie przedramion</label>
+                <app-scale [min]="0" [max]="10" [hotFrom]="8" [value]="sl.pump" (valueChange)="setField(d.currentSet, 'pump', $event)" low="brak" high="skrajne" />
+              </div>
+            }
+          } @else {
+            <p class="lead">Wszystkie drogi tej części zaliczone.</p>
+          }
+
+          @if (ex.kind === 'routes' && technique().length) {
+            <details class="more">
+              <summary>Priorytety techniczne</summary>
+              <ul class="safety">@for (c of technique(); track c) { <li>{{ c }}</li> }</ul>
+            </details>
+          }
+
+          <details class="more">
+            <summary>Lista dróg · {{ routesDone() }} / {{ d.routes.length }}</summary>
+            @for (r of (ex.kind === 'circuit' ? setRoutes() : d.routes); track r.id; let i = $index) {
+              <div class="route-row" [class.sent]="r.state === 'sent'" [class.fell]="r.state === 'fell'">
+                <span class="mono idx">{{ (i + 1).toString().padStart(2, '0') }}</span>
+                <select class="mono" [ngModel]="r.grade" (ngModelChange)="routeField(r.id, 'grade', $event)" aria-label="Wycena">@for (g of grades; track g) { <option [value]="g">{{ g }}</option> }</select>
+                <button type="button" class="tick" [class.on]="r.state === 'sent'" (click)="setRouteState(r.id, 'sent')" aria-label="Ukończona"><app-icon name="check" /></button>
+                <button type="button" class="tick bad" [class.on]="r.state === 'fell'" (click)="setRouteState(r.id, 'fell')" aria-label="Odpadnięcie"><app-icon name="x" /></button>
+                <span class="mono pump">{{ r.pump != null ? 'P' + r.pump : '–' }}</span>
+              </div>
+            }
+            @if (ex.kind === 'circuit') {
+              <div class="btn-row">@for (s of d.sets; track s.setIndex) { <button class="btn sm" [class.dark]="s.setIndex === d.currentSet" type="button" (click)="goSet(s.setIndex)">Seria {{ s.setIndex }}</button> }</div>
+            }
+            <button class="btn ghost sm" type="button" (click)="addExtraRoute()"><app-icon name="plus" /> Dodatkowa droga</button>
+          </details>
+        }
+
+        <!-- ---------- TRUDNE DROGI (A) ---------- -->
+        @if (ex.kind === 'hard_routes') {
+          <div class="counter">
+            <span class="eyebrow">Próba</span>
+            <span class="mono big-count">{{ (hardAttempts().length + (tm ? 0 : 1)).toString().padStart(2, '0') }}<span class="of"> / {{ d.params.hardRoutes.maxAttempts.toString().padStart(2, '0') }}</span></span>
+          </div>
+          @if (hardAttempts().length >= d.params.hardRoutes.maxAttempts) {
+            <div class="note warn">Limit prób osiągnięty. Kończ, zanim palce będą całkowicie zmęczone.</div>
+          }
+          @if (tm) {
+            <div class="clock-block rest">
+              <span class="phase-label">{{ tm.label }}{{ tm.pausedAt ? ' · pauza' : '' }}</span>
+              <span class="mono clock">{{ clock(remaining()) }}</span>
+              <div class="track"><span [style.width.%]="timerPct()"></span></div>
+            </div>
+          } @else {
+            <div class="spec route-spec">
+              <div class="grade-row">
+                <button class="icon-btn" type="button" (click)="shiftNewGrade(-1)" aria-label="Łatwiejsza wycena"><app-icon name="minus" /></button>
+                <span class="mono grade-big">{{ newGrade || lastAttempt()?.grade || d.params.hardRoutes.gradeFrom }}</span>
+                <button class="icon-btn" type="button" (click)="shiftNewGrade(1)" aria-label="Trudniejsza wycena"><app-icon name="plus" /></button>
+              </div>
+              <span class="mono spec-sub">zakres {{ d.params.hardRoutes.gradeFrom }}–{{ d.params.hardRoutes.gradeTo }} · pełne przerwy</span>
+            </div>
+          }
+          @if (lastAttempt(); as la) {
+            <div class="form-block">
+              <span class="eyebrow">Ostatnia próba · {{ la.grade }} · {{ la.state === 'sent' ? 'przejście' : 'odpadnięcie' }}</span>
+              @if (la.state === 'sent') {
+                <div class="chips" role="radiogroup" aria-label="Styl przejścia">
+                  @for (s of ascents; track s) { <button type="button" class="chip" [class.on]="la.ascent === s" (click)="routeField(la.id, 'ascent', la.ascent === s ? null : s)">{{ ascentLabels[s] }}</button> }
+                </div>
+              }
+              <div class="chips">
+                <button type="button" class="chip" [class.on]="la.cruxSent" (click)="routeField(la.id, 'cruxSent', !la.cruxSent)">Crux przechwycony</button>
+              </div>
+            </div>
+          }
+          <details class="more">
+            <summary>Próby · {{ hardAttempts().length }}</summary>
+            @for (r of hardAttempts(); track r.id; let i = $index) {
+              <div class="route-row" [class.sent]="r.state === 'sent'" [class.fell]="r.state === 'fell'">
+                <span class="mono idx">{{ (i + 1).toString().padStart(2, '0') }}</span>
+                <select class="mono" [ngModel]="r.grade" (ngModelChange)="routeField(r.id, 'grade', $event)" aria-label="Wycena">@for (g of grades; track g) { <option [value]="g">{{ g }}</option> }</select>
+                <span class="mono res">{{ r.state === 'sent' ? (r.ascent ? ascentLabels[r.ascent] : 'przejście') : 'odpadł' }}</span>
+                <button type="button" class="icon-btn" (click)="removeRoute(r.id)" aria-label="Usuń próbę"><app-icon name="trash" /></button>
+              </div>
+            } @empty { <p class="faint small">Brak prób.</p> }
+          </details>
+        }
+
+        <!-- ---------- inne (np. checklisty) ---------- -->
+        @if (ex.kind !== 'warmup' && ex.kind !== 'hangboard' && ex.kind !== 'routes' && ex.kind !== 'circuit' && ex.kind !== 'hard_routes') {
+          <p class="lead">{{ ex.description }}</p>
+        }
+        @if (d.forcePartial) { <p class="faint small">Zapisujesz trening częściowy – zaliczaj tylko wykonane elementy.</p> }
+      </section>
+
+      <!-- ---------- DOK: jeden główny przycisk ---------- -->
+      <footer class="dock">
+        @if (tm) {
+          <div class="dock-row">
+            <button class="btn xl" [class.primary]="!!tm.pausedAt" type="button" (click)="togglePause()">
+              <app-icon [name]="tm.pausedAt ? 'play' : 'pause'" /> {{ tm.pausedAt ? 'Wznów' : 'Pauza' }}
+            </button>
+            <button class="btn xl dark-outline" type="button" (click)="skipTimer()"><app-icon name="skip" /> {{ tm.kind === 'work' ? 'Przerwij zwis' : 'Pomiń przerwę' }}</button>
+          </div>
+        } @else {
+          @switch (ex.kind) {
+            @case ('warmup') {
+              <button class="btn primary xl" type="button" (click)="completeWarmup(ex.id, ex.checklist ?? [])"><app-icon name="check" /> Rozgrzewka zrobiona</button>
+            }
+            @case ('hangboard') {
+              @if (d.hang && !d.hang.blocked && !d.hang.pain && d.hang.setsDone < d.hang.setsPlanned) {
+                <button class="btn primary xl" type="button" (click)="startHangTimer()"><app-icon name="play" /> Start zwisu {{ d.hang.setsDone + 1 }}</button>
+              } @else {
+                <button class="btn primary xl" type="button" (click)="next()">{{ isLastStep() ? 'Zakończ trening' : 'Dalej' }} <app-icon name="arrow-right" /></button>
+              }
+            }
+            @case ('hard_routes') {
+              <div class="dock-row">
+                <button class="btn primary xl" type="button" (click)="addAttempt(true)"><app-icon name="check" /> Przejście</button>
+                <button class="btn xl dark-outline" type="button" (click)="addAttempt(false)"><app-icon name="x" /> Odpadnięcie</button>
+              </div>
+              @if (hardAttempts().length) { <button class="btn ghost block" type="button" (click)="next()">{{ isLastStep() ? 'Zakończ trening' : 'Dalej' }}</button> }
+            }
+            @default {
+              @if ((ex.kind === 'routes' || ex.kind === 'circuit') && currentRoute()) {
+                <div class="dock-row">
+                  <button class="btn primary xl" type="button" (click)="completeRoute('sent')"><app-icon name="check" /> Ukończona</button>
+                  <button class="btn xl dark-outline" type="button" (click)="completeRoute('fell')"><app-icon name="x" /> Odpadnięcie</button>
+                </div>
+              } @else if (ex.kind === 'circuit' && d.currentSet < d.sets.length) {
+                <button class="btn primary xl" type="button" (click)="nextSet()">Seria {{ d.currentSet + 1 }} <app-icon name="arrow-right" /></button>
+              } @else {
+                <button class="btn primary xl" type="button" (click)="next()">{{ isLastStep() ? 'Zakończ trening' : 'Dalej' }} <app-icon name="arrow-right" /></button>
+              }
+            }
+          }
+        }
+        <span class="saved mono" [class.show]="saved()" aria-live="polite"><app-icon name="check" /> zapisano lokalnie</span>
+      </footer>
+
+      @if (menu()) {
+        <div class="sheet-backdrop" (click)="menu.set(false)">
+          <div class="sheet" role="dialog" aria-modal="true" aria-label="Opcje treningu" (click)="$event.stopPropagation()">
+            <div class="spread"><h2>Sesja</h2><button class="icon-btn" type="button" (click)="menu.set(false)" aria-label="Zamknij"><app-icon name="x" /></button></div>
+            <div class="stack-sm">
+              @for (s of steps(); track s.id; let i = $index) {
+                <button class="step-link" type="button" [class.on]="i === stepIndex()" (click)="goStep(i)">
+                  <span class="mono">{{ (i + 1).toString().padStart(2, '0') }}</span><span class="grow">{{ s.name }}</span>@if (stepDone(s)) { <app-icon name="check" /> }
+                </button>
+              }
+            </div>
+            <button class="btn primary big" type="button" (click)="toSummary()">Zakończ i podsumuj</button>
+            <hr class="rule" />
+            <button class="btn danger" type="button" (click)="discard()"><app-icon name="trash" /> Porzuć trening (usuwa dane)</button>
+          </div>
+        </div>
+      }
     }
 
     <!-- ============ PODSUMOWANIE ============ -->
     @if (phase() === 'summary' && draft(); as d) {
-      <section class="card">
-        <h2>Podsumowanie</h2>
+      <section class="pad stage enter">
+        <span class="eyebrow">Podsumowanie · {{ elapsed() }} min</span>
+        <h1 class="stage-title">Jak poszło?</h1>
         @if (missing().length || d.forcePartial) {
           <div class="note warn">
-            <strong>Trening zostanie zapisany jako częściowo wykonany.</strong>
+            <strong>Zapis jako trening częściowy.</strong>
             @for (m of missing(); track m) { <p>{{ m }}</p> }
-            <p>Trening częściowy nie jest traktowany jak pełne wykonanie – nie daje podstawy do progresji.</p>
+            <p>Trening częściowy nie daje podstawy do progresji.</p>
           </div>
         } @else {
           <div class="note ok">Wszystkie części wykonane.</div>
         }
         <label class="check-line"><input type="checkbox" [ngModel]="d.forcePartial" (ngModelChange)="setVal('forcePartial', $event)" /> Oznacz jako częściowo wykonany</label>
-
-        <label class="field">RPE całego treningu</label>
-        <app-scale [min]="1" [max]="10" [hotFrom]="9" [value]="d.rpe" (valueChange)="setVal('rpe', $event)" low="bardzo lekko" high="maksimum" />
-        <label class="field">Pompowanie przedramion (maks.)</label>
-        <app-scale [min]="0" [max]="10" [hotFrom]="8" [value]="d.pump" (valueChange)="setVal('pump', $event)" low="brak" high="skrajne" />
-        <label class="field">Jakość techniki</label>
-        <app-scale [min]="1" [max]="5" [value]="d.technique" (valueChange)="setVal('technique', $event)" low="słaba" high="bardzo dobra" />
-        <label class="field">Samopoczucie po treningu</label>
-        <app-scale [min]="1" [max]="5" [value]="d.feelingAfter" (valueChange)="setVal('feelingAfter', $event)" low="rozbity" high="świetnie" />
-        <label class="field">Czas trwania (min)
-          <input type="number" inputmode="numeric" min="1" [ngModel]="d.durationMin" (ngModelChange)="setVal('durationMin', +$event || null)" />
-        </label>
-        <label class="field">Notatki
-          <textarea [ngModel]="d.notes" (ngModelChange)="setVal('notes', $event)" placeholder="Jak poszło? Co było trudne?"></textarea>
-        </label>
+        <div class="form-block">
+          <label class="field">RPE całego treningu</label>
+          <app-scale [min]="1" [max]="10" [hotFrom]="9" [value]="d.rpe" (valueChange)="setVal('rpe', $event)" low="bardzo lekko" high="maksimum" />
+          <label class="field">Pompowanie przedramion (maks.)</label>
+          <app-scale [min]="0" [max]="10" [hotFrom]="8" [value]="d.pump" (valueChange)="setVal('pump', $event)" low="brak" high="skrajne" />
+          <label class="field">Jakość techniki</label>
+          <app-scale [min]="1" [max]="5" [value]="d.technique" (valueChange)="setVal('technique', $event)" low="słaba" high="bardzo dobra" />
+          <label class="field">Samopoczucie po treningu</label>
+          <app-scale [min]="1" [max]="5" [value]="d.feelingAfter" (valueChange)="setVal('feelingAfter', $event)" low="rozbity" high="świetnie" />
+          <div class="grid-2">
+            <label class="field">Czas (min)<input type="number" inputmode="numeric" min="1" [ngModel]="d.durationMin" (ngModelChange)="setVal('durationMin', +$event || null)" /></label>
+          </div>
+          <label class="field">Notatki<textarea [ngModel]="d.notes" (ngModelChange)="setVal('notes', $event)" placeholder="Co było trudne? Co zadziałało?"></textarea></label>
+        </div>
       </section>
-      <div class="finish-bar">
-        <button class="btn primary xl block" type="button" (click)="finish()" [disabled]="busy()">Zapisz trening</button>
-      </div>
-      <button class="btn block" type="button" (click)="phase.set('active')">← Wróć do treningu</button>
+      <footer class="dock">
+        <button class="btn primary xl" type="button" (click)="finish()" [disabled]="busy()"><app-icon name="check" /> Zapisz trening</button>
+        <button class="btn ghost block" type="button" (click)="phase.set('active')"><app-icon name="arrow-left" /> Wróć do treningu</button>
+      </footer>
     }
 
     <!-- ============ WYNIK ============ -->
     @if (phase() === 'result' && result(); as r) {
-      <section class="card hero">
-        <div class="eyebrow">{{ r.workout.date | datePl }} · {{ r.workout.durationMin }} min</div>
-        <h2>{{ r.workout.completion === 'full' ? 'Trening zapisany' : 'Zapisano trening częściowy' }}</h2>
-        <div class="row wrap">
-          @for (f of r.assessment.facts; track f) { <span class="tag">{{ f }}</span> }
-        </div>
-        @if (r.assessment.issues.length) {
-          <p class="muted">Uwagi: {{ r.assessment.issues.join(', ') }}.</p>
-        }
-      </section>
-      <section class="card">
-        <h3>Co dalej z planem</h3>
+      <section class="pad stage enter">
+        <span class="eyebrow">{{ r.workout.date | datePl }} · {{ r.workout.durationMin }} min · zapisano</span>
+        <h1 class="hero-title saved-title">{{ r.workout.completion === 'full' ? 'Sesja zapisana.' : 'Zapisano częściowo.' }}</h1>
+        <ul class="facts">@for (f of r.assessment.facts; track f) { <li class="mono">{{ f }}</li> }</ul>
+        @if (r.assessment.issues.length) { <p class="lead">Uwagi: {{ r.assessment.issues.join(', ') }}.</p> }
+        <span class="eyebrow">Co dalej z planem</span>
         @for (dec of r.decisions; track dec.track) {
-          <div class="note" [class.ok]="dec.action === 'progress'" [class.warn]="dec.action === 'reduce'" [class.info]="dec.action === 'hold'">
-            <p>{{ dec.reason }}</p>
-          </div>
+          <div class="note" [class.ok]="dec.action === 'progress'" [class.warn]="dec.action === 'reduce'" [class.info]="dec.action === 'hold'"><p>{{ dec.reason }}</p></div>
         } @empty {
-          @if (r.workout.deload) {
-            <div class="note info"><p>Sesja w wersji obniżonej (deload / lżejsza) – nie wpływa na progresję. Poziom obciążenia bez zmian.</p></div>
-          } @else {
-            <div class="note info"><p>Trening A (trudne drogi) nie ma automatycznej progresji – zakres trudności zmieniasz ręcznie w Profilu.</p></div>
-          }
+          <div class="note info"><p>{{ r.workout.deload ? 'Sesja w wersji obniżonej – nie wpływa na progresję.' : 'Trening A (trudne drogi) nie ma automatycznej progresji – zakres zmieniasz w Profilu.' }}</p></div>
         }
-        @if (r.decisions.some(isProgress)) { <p class="faint">W każdej części treningu zmieniany jest najwyżej jeden parametr.</p> }
+        @if (r.decisions.some(isProgress)) { <p class="faint small">W każdej części treningu zmieniany jest najwyżej jeden parametr.</p> }
       </section>
-      <div class="btn-row">
-        <a class="btn primary big" routerLink="/">Start</a>
-        <a class="btn big" [routerLink]="['/history', r.workout.id]">Szczegóły</a>
-      </div>
+      <footer class="dock">
+        <a class="btn primary xl" routerLink="/">Gotowe</a>
+        <a class="btn ghost block" [routerLink]="['/history', r.workout.id]">Karta treningu</a>
+      </footer>
     }
   }
 </div>

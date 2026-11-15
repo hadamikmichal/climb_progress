@@ -7,6 +7,12 @@ export const GRIP_LABELS: Record<GripPosition, string> = {
   three_finger_drag: '3 palce (drag)',
 };
 
+export const ASCENT_LABELS: Record<import('../models/models').AscentStyle, string> = {
+  onsight: 'OS',
+  flash: 'Flash',
+  redpoint: 'RP',
+};
+
 export const HOLD_LABELS: Record<HoldType, string> = {
   edge: 'Krawądka',
   pocket: 'Dziurka',

@@ -1,26 +1,28 @@
-<div class="page">
+<div class="page wide report">
   @if (a(); as t) {
     @let s = strength();
     @let cl = climbing();
     @let k = conclusions()!;
-    <header class="page-head">
-      <div>
-        <div class="eyebrow">{{ cycleName() }} · protokół v{{ t.protocolVersion }} · {{ statusLabels[t.status] }}</div>
-        <h1>{{ kindLabels[t.kind] }}</h1>
-        <p class="muted">
-          @if (t.strength) { Dzień 1: {{ t.strength.date | datePl }} }
-          @if (t.strength && t.climbing) { · }
-          @if (t.climbing) { {{ t.kind === 'CONTROL' ? 'Test' : 'Dzień 2' }}: {{ t.climbing.date | datePl }} }
-        </p>
+    <header class="r-head">
+      <div class="r-meta">
+        <span>Raport</span><span>{{ cycleName() }}</span><span>Protokół v{{ t.protocolVersion }}</span><span>{{ statusLabels[t.status] }}</span>
       </div>
-      <div class="btn-row">
-        <button class="btn sm" type="button" (click)="exportJson()">Eksport JSON</button>
-        <a class="btn sm" [routerLink]="demo ? '/progress' : '/'">Wróć</a>
+      <h1>{{ kindLabels[t.kind] }}</h1>
+      <dl class="r-dates">
+        @if (t.strength) { <div><dt>Dzień 1</dt><dd class="num">{{ t.strength.date | datePl }}</dd></div> }
+        @if (t.climbing) { <div><dt>{{ t.kind === 'CONTROL' ? 'Test' : 'Dzień 2' }}</dt><dd class="num">{{ t.climbing.date | datePl }}</dd></div> }
+        @if (s?.bodyMassKg) { <div><dt>Masa ciała</dt><dd class="num">{{ r1(s!.bodyMassKg) }} kg</dd></div> }
+      </dl>
+      <div class="r-actions">
+        <button class="btn sm" type="button" (click)="exportJson()"><app-icon name="download" />JSON</button>
+        <a class="btn sm ghost" [routerLink]="demo ? '/progress' : '/'"><app-icon name="arrow-left" />Wróć</a>
       </div>
     </header>
 
+    <app-baseline-steps [kind]="t.kind" [current]="reportStep()" [doneUntil]="t.status === 'completed' ? 8 : 0" />
+
     @if (demo) {
-      <div class="note warn"><strong>TRYB DEMO.</strong> Wszystkie wartości są przykładowe i nie pochodzą z Twoich pomiarów. Nie są zapisywane w bazie.</div>
+      <p class="note warn"><strong>Tryb demo.</strong> Wszystkie wartości są przykładowe i nie pochodzą z Twoich pomiarów. Nic nie jest zapisywane w bazie.</p>
       <div class="seg2">
         <button type="button" [class.on]="demoView() === 'baseline'" (click)="demoView.set('baseline')">Baseline</button>
         <button type="button" [class.on]="demoView() === 'retest'" (click)="demoView.set('retest')">Retest + porównanie</button>
@@ -28,196 +30,204 @@
     }
 
     @for (p of pendingParts(); track p.id) {
-      <div class="note info row wrap">
-        <span class="grow">{{ partLabels[p.part!] }} – {{ p.date | datePl }} ({{ statusLabels[(p.part === 'strength' ? t.strength?.status : t.climbing?.status) ?? 'scheduled'] }})</span>
-        <a class="btn sm primary" [routerLink]="['/assessment/run', p.id]">{{ (p.part === 'strength' ? t.strength : t.climbing) ? 'Wznów' : 'Rozpocznij' }}</a>
+      <div class="pending">
+        <div class="grow">
+          <span class="eyebrow">{{ (p.part === 'strength' ? t.strength?.status : t.climbing?.status) ? statusLabels[(p.part === 'strength' ? t.strength?.status : t.climbing?.status)!] : 'Zaplanowany' }} · {{ p.date | datePl }}</span>
+          <strong>{{ partLabels[p.part!] }}</strong>
+        </div>
+        <a class="btn primary" [routerLink]="['/assessment/run', p.id]">{{ (p.part === 'strength' ? t.strength : t.climbing) ? 'Wznów' : 'Rozpocznij' }}</a>
       </div>
     }
 
     @if (canGeneratePlan()) {
-      <section class="card hero">
-        <h2>Baseline Test zakończony</h2>
-        <p class="muted">Możesz wygenerować 6-tygodniowy plan. Obszary wymagające największej pracy znajdziesz w sekcji 7.</p>
-        <a class="btn primary big" routerLink="/">Wygeneruj plan na Start</a>
-      </section>
+      <div class="pending done">
+        <div class="grow"><span class="eyebrow">Baseline zakończony</span><strong>Wygeneruj 6-tygodniowy plan</strong></div>
+        <a class="btn primary" routerLink="/">Przejdź</a>
+      </div>
     }
 
-    <!-- =============== DZIEŃ 1 =============== -->
-    @if (s && t.strength) {
-      @let st = t.strength;
-      <section class="card">
-        <div class="eyebrow">Punktacja 9c Strength Test</div>
-        <div class="grid-2 grid-md-4">
-          <app-score-chip label="Finger Strength" [score]="s.finger.score" />
-          <app-score-chip label="Pulling Strength" [score]="s.pullUp.score" />
-          <app-score-chip label="Core Strength" [score]="s.core.score" />
-          <app-score-chip label="Endurance" [score]="s.deadHang.score" />
-        </div>
-        @if (s.nineC.isComplete) {
-          <app-score-chip label="Total" [score]="s.nineC.totalPoints" [max]="40" [sub]="s.nineC.estimatedGrade ? 'Orientacyjny benchmark siłowy: ' + s.nineC.estimatedGrade : ''" />
-          <p class="faint">Benchmark siłowy wg publikowanej punktacji testu 9c – nie jest przewidywanym rzeczywistym poziomem wspinaczkowym i nie wchodzi do wskaźnika progresu.</p>
-        } @else {
-          <p class="note info">Test niekompletny – suma 40-punktowa nie jest liczona. Brakujące pomiary: NOT TESTED (nie 0).</p>
-        }
-      </section>
-
-      <section class="grid-md-2">
-        <div class="card">
-          <h3>1 · Finger Strength</h3>
-          <table class="table"><tbody>
-            <tr><td>Masa ciała</td><td class="num">{{ r1(s.bodyMassKg) }} kg</td></tr>
-            <tr><td>Max Hang {{ st.maxFingerStrength.edgeDepthMm ?? '?' }} mm / 5 s</td><td class="num">{{ s.finger.status === 'not_tested' ? 'NOT TESTED' : s.finger.status === 'failed' ? 'brak zaliczonej próby' : '✓' }}</td></tr>
-            <tr><td>Dodatkowe obciążenie</td><td class="num">{{ loadText(s.finger.addedWeightKg, s.finger.assistanceKg) }}</td></tr>
-            <tr><td>Obciążenie całkowite</td><td class="num">{{ s.finger.totalLoadKg != null ? r1(s.finger.totalLoadKg) + ' kg' : '–' }}</td></tr>
-            <tr><td>% masy ciała</td><td class="num">{{ s.finger.bodyMassRatioPercent != null ? r1(s.finger.bodyMassRatioPercent) + '%' : '–' }}</td></tr>
-            <tr><td>Punktacja 9c</td><td class="num"><strong>{{ s.finger.score != null ? s.finger.score + '/10' : 'NOT TESTED' }}</strong></td></tr>
-          </tbody></table>
-          <small class="faint">{{ st.maxFingerStrength.edgeLabel }} · half crimp · {{ st.maxFingerStrength.attempts.length }} prób@if (st.maxFingerStrength.skipReason) { · pominięto: {{ st.maxFingerStrength.skipReason }} }</small>
-        </div>
-        <div class="card">
-          <h3>2 · Pulling Strength</h3>
-          <table class="table"><tbody>
-            <tr><td>Maksymalne podciągnięcie</td><td class="num">{{ s.pullUp.status === 'not_tested' ? 'NOT TESTED' : s.pullUp.status === 'failed' ? 'brak zaliczonej próby' : s.pullUp.reps + ' powt.' }}</td></tr>
-            <tr><td>Dodatkowe obciążenie</td><td class="num">{{ s.pullUp.addedWeightKg != null ? '+' + r1(s.pullUp.addedWeightKg) + ' kg' : '–' }}</td></tr>
-            <tr><td>Łączna masa</td><td class="num">{{ s.pullUp.totalLoadKg != null ? r1(s.pullUp.totalLoadKg) + ' kg' : '–' }}</td></tr>
-            <tr><td>% masy ciała</td><td class="num">{{ s.pullUp.bodyMassRatioPercent != null ? r1(s.pullUp.bodyMassRatioPercent) + '%' : '–' }}</td></tr>
-            <tr><td>Punktacja 9c</td><td class="num"><strong>{{ s.pullUp.score != null ? s.pullUp.score + '/10' : 'NOT TESTED' }}</strong></td></tr>
-          </tbody></table>
-          @if (st.weightedPullUp.skipReason) { <small class="faint">Pominięto: {{ st.weightedPullUp.skipReason }}</small> }
-        </div>
-        <div class="card">
-          <h3>3 · Core</h3>
-          <table class="table"><tbody>
-            <tr><td>Wariant</td><td class="num">{{ s.core.exercise ? coreLabels[s.core.exercise] : s.core.status === 'not_tested' ? 'NOT TESTED' : '–' }}</td></tr>
-            <tr><td>Czas</td><td class="num">{{ s.core.holdSeconds != null ? r1(s.core.holdSeconds) + ' s' : '–' }}</td></tr>
-            <tr><td>Punktacja 9c</td><td class="num"><strong>{{ s.core.score != null ? s.core.score + '/10' : 'NOT TESTED' }}</strong></td></tr>
-          </tbody></table>
-        </div>
-        <div class="card">
-          <h3>4 · Dead Hang</h3>
-          <table class="table"><tbody>
-            <tr><td>Czas</td><td class="num">{{ s.deadHang.holdSeconds != null ? fmt(s.deadHang.holdSeconds) : 'NOT TESTED' }}</td></tr>
-            <tr><td>Zakończenie</td><td class="num">{{ st.deadHang.endReason ? endLabels[st.deadHang.endReason] : '–' }}</td></tr>
-            <tr><td>Drążek</td><td class="num">{{ st.deadHang.barDiameterMm ? st.deadHang.barDiameterMm + ' mm' : 'średnica nieznana' }} · nachwyt</td></tr>
-            <tr><td>Punktacja 9c</td><td class="num"><strong>{{ s.deadHang.score != null ? s.deadHang.score + '/10' : 'NOT TESTED' }}</strong></td></tr>
-          </tbody></table>
-        </div>
-      </section>
-    }
-
-    <!-- =============== DZIEŃ 2 =============== -->
-    @if (cl && t.climbing) {
-      @let c = t.climbing;
-      @let tm = cl.time;
-      @let rc = cl.recovery;
-      <section class="card">
-        <h3>5 · Climbing Performance</h3>
-        <p class="muted">{{ c.route.name }}@if (c.route.routeId) { ({{ c.route.routeId }}) } · {{ c.route.frenchGrade }} · {{ c.route.heightMeters }} m · {{ wallLabels[c.route.wallStyle] }} · {{ styleLabels[c.route.climbingStyle] }}@if (c.route.location) { · {{ c.route.location }} }</p>
-        @if (c.routeChanged) { <div class="note warn">Inna droga niż w teście odniesienia – wynik mniej porównywalny.</div> }
-        @if (c.stoppedByFatigue) { <div class="note info">Test zakończony przed czasem z powodu narastającego zmęczenia.</div> }
-        <div class="grid-2 grid-md-4">
-          <div class="stat"><span class="value">{{ tm.completedRoutes }}/{{ c.plannedAttempts }}</span><span class="label">ukończone drogi</span></div>
-          <div class="stat"><span class="value">{{ fmt(tm.averageTimeSeconds) }}</span><span class="label">średni czas przejścia</span></div>
-          <div class="stat"><span class="value">{{ fmt(tm.fastestTimeSeconds) }} / {{ fmt(tm.slowestTimeSeconds) }}</span><span class="label">najkrótszy / najdłuższy</span></div>
-          <div class="stat"><span class="value">{{ signed(tm.timeChangePercent, '%') }}</span><span class="label">zmiana czasu 1. → ostatnia ({{ signed(tm.timeChangeSeconds, ' s') }})</span></div>
-        </div>
-        <table class="table">
-          <thead><tr><th>Próba</th><th class="num">Czas</th><th>Wynik</th><th class="num">RPE</th><th class="num">Pompa</th><th>Technika</th></tr></thead>
-          <tbody>
-            @for (x of c.attempts; track x.index) {
-              <tr [class.faint]="x.status === 'invalid'">
-                <td>{{ x.index }}</td><td class="num">{{ fmt(x.ascentTimeSeconds) }}</td>
-                <td>{{ x.status === 'invalid' ? 'nieważna' : x.completed ? 'ukończona' : 'odpadnięcie' }}@if (x.failurePoint) { <small> · {{ x.failurePoint }}</small> }</td>
-                <td class="num">{{ x.rpe ?? '–' }}</td><td class="num">{{ x.forearmPump ?? '–' }}</td>
-                <td>{{ x.techniqueDegraded ? 'pogorszenie' : x.techniqueDegraded === false ? 'ok' : '–' }}{{ x.problemMove ? ' · problem z przechwytem' : '' }}</td>
-              </tr>
-            }
-          </tbody>
-        </table>
-        <div class="grid-md-2">
-          <div><span class="eyebrow">Route Timing</span>@if (timingChart(); as cfg) { <app-chart [config]="cfg" [height]="200" label="Czasy przejść kolejnych prób" /> }</div>
-          <div><span class="eyebrow">Forearm Pump</span>@if (pumpChart(); as cfg) { <app-chart [config]="cfg" [height]="200" label="Pompowanie po każdej próbie" /> }</div>
-        </div>
-      </section>
-
-      <section class="card">
-        <h3>6 · Recovery Curve</h3>
-        <div class="recov">
-          @for (p of rc.points; track p.elapsedSeconds) {
-            <div class="slot"><div class="eyebrow">{{ p.elapsedSeconds / 60 }} min</div><div class="v num">{{ p.pump ?? '–' }}</div><small class="faint">/10</small></div>
+    <div class="r-cols">
+      <!-- =============== DZIEŃ 1 =============== -->
+      @if (s && t.strength) {
+        @let st = t.strength;
+        <section class="r-sec full">
+          <header class="r-sec-head"><span class="num">00</span><h2>Punktacja 9c</h2><span class="eyebrow">Strength Test</span></header>
+          <dl class="scoreboard">
+            <div><dt>Finger</dt><dd>@if (s.finger.score != null) { <span class="metric">{{ s.finger.score }}</span><span class="unit">/10</span> } @else { <span class="nt-label">Not tested</span> }</dd></div>
+            <div><dt>Pulling</dt><dd>@if (s.pullUp.score != null) { <span class="metric">{{ s.pullUp.score }}</span><span class="unit">/10</span> } @else { <span class="nt-label">Not tested</span> }</dd></div>
+            <div><dt>Core</dt><dd>@if (s.core.score != null) { <span class="metric">{{ s.core.score }}</span><span class="unit">/10</span> } @else { <span class="nt-label">Not tested</span> }</dd></div>
+            <div><dt>Endurance</dt><dd>@if (s.deadHang.score != null) { <span class="metric">{{ s.deadHang.score }}</span><span class="unit">/10</span> } @else { <span class="nt-label">Not tested</span> }</dd></div>
+          </dl>
+          @if (s.nineC.isComplete) {
+            <div class="total">
+              <span class="eyebrow">Total</span><span><span class="metric">{{ s.nineC.totalPoints }}</span><span class="unit">/40</span></span>
+              @if (s.nineC.estimatedGrade) { <span class="params">benchmark siłowy ≈ {{ s.nineC.estimatedGrade }}</span> }
+            </div>
+            <p class="foot-note">Orientacyjny benchmark wg publikowanej punktacji 9c – nie jest przewidywanym poziomem wspinaczkowym i nie wchodzi do wskaźnika progresu.</p>
+          } @else {
+            <p class="foot-note">Test niekompletny – suma 40-punktowa nie jest liczona. Brakujące pomiary oznaczone jako NOT TESTED (nie 0).</p>
           }
-        </div>
-        @if (recoveryChart(); as cfg) { <app-chart [config]="cfg" [height]="200" label="Krzywa regeneracji przedramion" /> }
-        <table class="table"><tbody>
-          <tr><td>Zmiana między pomiarami</td><td class="num">@for (d of rc.deltas; track d.to) { {{ signed(d.change) }}{{ $last ? '' : ' · ' }} }</td></tr>
-          <tr><td>Spadek pompowania o 50%</td><td class="num">{{ rc.halfRecovery === 'reached' ? 'po ' + rc.halfRecoverySeconds! / 60 + ' min' : rc.halfRecovery === 'not_reached' ? 'nie osiągnięto w okresie obserwacji' : 'nie dotyczy' }}</td></tr>
-          <tr><td>Pompowanie po pierwszej drodze</td><td class="num">{{ rc.pumpAfterFirstRoute ?? '–' }}/10</td></tr>
-          <tr><td>Pompowanie po ostatniej drodze</td><td class="num">{{ rc.pumpAfterLastRoute ?? '–' }}/10</td></tr>
-          <tr><td>Różnica pierwsza → ostatnia</td><td class="num">{{ signed(rc.pumpRiseFirstToLast) }}</td></tr>
-        </tbody></table>
-        <p class="faint">Standaryzowana ocena subiektywna – nie jest obiektywnym pomiarem fizjologicznym.</p>
-      </section>
-    }
+        </section>
 
-    <!-- =============== WNIOSKI =============== -->
-    <section class="card">
-      <h3>7 · Wnioski</h3>
-      @for (l of k.lines; track l.text) {
-        <div class="note" [class.warn]="l.kind === 'weakness'" [class.ok]="l.kind === 'strength'" [class.info]="l.kind === 'info'">{{ l.text }}</div>
-      } @empty {
-        <p class="empty">Za mało danych do wniosków.</p>
-      }
-      @if (k.missing.length) { <p class="faint">Niezmierzone: {{ k.missing.join(', ') }}.</p> }
-      @if (k.focus.length) {
-        <h3>Obszary wymagające największej pracy</h3>
-        <ol class="proto">
-          @for (f of k.focus; track f.area) { <li><strong>{{ f.label }}</strong></li> }
-        </ol>
-        <p class="faint">Priorytety wg zasady testu: siła palców → powtarzalność → tempo przy zmęczeniu → pompowanie → regeneracja. Posłużą do personalizacji kolejnego 6-tygodniowego cyklu.</p>
-      }
-      <p class="faint">Wnioski dotyczą wyłącznie wyników testu i nie są diagnozą zdrowotną.</p>
-    </section>
+        <section class="r-sec">
+          <header class="r-sec-head"><span class="num">01</span><h2>Finger Strength</h2><span class="eyebrow">{{ st.maxFingerStrength.edgeDepthMm ?? '?' }} mm · 5 s</span></header>
+          <dl class="kv">
+            <div><dt>Status</dt><dd>{{ s.finger.status === 'not_tested' ? 'NOT TESTED' : s.finger.status === 'failed' ? 'brak zaliczonej próby' : 'zmierzony' }}</dd></div>
+            <div><dt>Dodatkowe obciążenie</dt><dd class="num">{{ loadText(s.finger.addedWeightKg, s.finger.assistanceKg) }}</dd></div>
+            <div><dt>Obciążenie całkowite</dt><dd class="num">{{ s.finger.totalLoadKg != null ? r1(s.finger.totalLoadKg) + ' kg' : '–' }}</dd></div>
+            <div><dt>% masy ciała</dt><dd class="num">{{ s.finger.bodyMassRatioPercent != null ? r1(s.finger.bodyMassRatioPercent) + '%' : '–' }}</dd></div>
+            <div class="em"><dt>Punktacja 9c</dt><dd class="num">{{ s.finger.score != null ? s.finger.score + '/10' : 'NOT TESTED' }}</dd></div>
+          </dl>
+          <p class="foot-note">{{ st.maxFingerStrength.edgeLabel || 'krawądka' }} · half crimp · {{ st.maxFingerStrength.attempts.length }} prób@if (st.maxFingerStrength.skipReason) { · pominięto: {{ st.maxFingerStrength.skipReason }} }</p>
+        </section>
 
-    <!-- =============== PORÓWNANIE =============== -->
-    @if (candidates().length && !demo) {
-      <label class="field">Porównaj z
-        <select [ngModel]="compareId() ?? counterpart()?.id ?? ''" (ngModelChange)="compareId.set($event || null)">
-          <option value="">– brak –</option>
-          @for (x of candidates(); track x.id) { <option [value]="x.id">{{ kindLabels[x.kind] }} · {{ (x.strength ?? x.climbing)!.date | datePl }}</option> }
-        </select>
-      </label>
-    }
-    @if (comparison(); as cmp) {
-      @let b = counterpart()!;
-      <section class="card">
-        <h3>{{ kindLabels[b.kind] }} vs {{ kindLabels[t.kind] }}</h3>
-        @if (cmp.conditions.limited) {
-          <div class="note warn"><strong>Porównanie ograniczone.</strong> @for (r of cmp.conditions.reasons; track r) { {{ r }} }</div>
-        } @else {
-          <p class="faint">Warunki zgodne (krawądka, drążek, wariant core, droga, odpoczynek).</p>
+        <section class="r-sec">
+          <header class="r-sec-head"><span class="num">02</span><h2>Pulling Strength</h2><span class="eyebrow">1RM</span></header>
+          <dl class="kv">
+            <div><dt>Maksymalne podciągnięcie</dt><dd>{{ s.pullUp.status === 'not_tested' ? 'NOT TESTED' : s.pullUp.status === 'failed' ? 'brak zaliczonej próby' : s.pullUp.reps + ' powt.' }}</dd></div>
+            <div><dt>Dodatkowe obciążenie</dt><dd class="num">{{ s.pullUp.addedWeightKg != null ? '+' + r1(s.pullUp.addedWeightKg) + ' kg' : '–' }}</dd></div>
+            <div><dt>Łączna masa</dt><dd class="num">{{ s.pullUp.totalLoadKg != null ? r1(s.pullUp.totalLoadKg) + ' kg' : '–' }}</dd></div>
+            <div><dt>% masy ciała</dt><dd class="num">{{ s.pullUp.bodyMassRatioPercent != null ? r1(s.pullUp.bodyMassRatioPercent) + '%' : '–' }}</dd></div>
+            <div class="em"><dt>Punktacja 9c</dt><dd class="num">{{ s.pullUp.score != null ? s.pullUp.score + '/10' : 'NOT TESTED' }}</dd></div>
+          </dl>
+          @if (st.weightedPullUp.skipReason) { <p class="foot-note">Pominięto: {{ st.weightedPullUp.skipReason }}</p> }
+        </section>
+
+        <section class="r-sec">
+          <header class="r-sec-head"><span class="num">03</span><h2>Core</h2><span class="eyebrow">najwyższy poziom</span></header>
+          <dl class="kv">
+            <div><dt>Wariant</dt><dd>{{ s.core.exercise ? coreLabels[s.core.exercise] : s.core.status === 'not_tested' ? 'NOT TESTED' : '–' }}</dd></div>
+            <div><dt>Czas</dt><dd class="num">{{ s.core.holdSeconds != null ? r1(s.core.holdSeconds) + ' s' : '–' }}</dd></div>
+            <div class="em"><dt>Punktacja 9c</dt><dd class="num">{{ s.core.score != null ? s.core.score + '/10' : 'NOT TESTED' }}</dd></div>
+          </dl>
+        </section>
+
+        <section class="r-sec">
+          <header class="r-sec-head"><span class="num">04</span><h2>Dead Hang</h2><span class="eyebrow">nachwyt</span></header>
+          <dl class="kv">
+            <div><dt>Czas</dt><dd class="num">{{ s.deadHang.holdSeconds != null ? fmt(s.deadHang.holdSeconds) : 'NOT TESTED' }}</dd></div>
+            <div><dt>Zakończenie</dt><dd>{{ st.deadHang.endReason ? endLabels[st.deadHang.endReason] : '–' }}</dd></div>
+            <div><dt>Drążek</dt><dd class="num">{{ st.deadHang.barDiameterMm ? st.deadHang.barDiameterMm + ' mm' : 'średnica nieznana' }}</dd></div>
+            <div class="em"><dt>Punktacja 9c</dt><dd class="num">{{ s.deadHang.score != null ? s.deadHang.score + '/10' : 'NOT TESTED' }}</dd></div>
+          </dl>
+        </section>
+      }
+
+      <!-- =============== DZIEŃ 2 =============== -->
+      @if (cl && t.climbing) {
+        @let c = t.climbing;
+        @let tm = cl.time;
+        @let rc = cl.recovery;
+        <section class="r-sec full">
+          <header class="r-sec-head"><span class="num">05</span><h2>Climbing Performance</h2><span class="eyebrow">{{ c.plannedAttempts }} × {{ c.route.frenchGrade }}</span></header>
+          <p class="params">{{ c.route.name }}@if (c.route.routeId) { · {{ c.route.routeId }} } · {{ c.route.heightMeters }} m · {{ wallLabels[c.route.wallStyle] }} · {{ styleLabels[c.route.climbingStyle] }}@if (c.route.location) { · {{ c.route.location }} }</p>
+          @if (c.routeChanged) { <p class="note warn">Inna droga niż w teście odniesienia – wynik mniej porównywalny.</p> }
+          @if (c.stoppedByFatigue) { <p class="note info">Test zakończony przed czasem z powodu narastającego zmęczenia.</p> }
+          <dl class="scoreboard">
+            <div><dt>Ukończone</dt><dd><span class="metric">{{ tm.completedRoutes }}</span><span class="unit">/{{ c.plannedAttempts }}</span></dd></div>
+            <div><dt>Średni czas</dt><dd><span class="metric m2">{{ fmt(tm.averageTimeSeconds) }}</span></dd></div>
+            <div><dt>Min / maks.</dt><dd><span class="metric m3">{{ fmt(tm.fastestTimeSeconds) }} / {{ fmt(tm.slowestTimeSeconds) }}</span></dd></div>
+            <div><dt>1. → ostatnia</dt><dd><span class="metric m2" [class.warnv]="(tm.timeChangePercent ?? 0) >= 10">{{ signed(tm.timeChangePercent) }}</span><span class="unit">% · {{ signed(tm.timeChangeSeconds, ' s') }}</span></dd></div>
+          </dl>
+          <ol class="attempts r-att">
+            @for (x of c.attempts; track x.index) {
+              <li [class.fail]="x.status === 'invalid'">
+                <span class="i num">{{ x.index }}</span>
+                <span class="v num">{{ fmt(x.ascentTimeSeconds) }}</span>
+                <span class="r">{{ x.status === 'invalid' ? 'nieważna' : x.completed ? 'ukończona' : 'odpadnięcie' }}{{ x.techniqueDegraded ? ' · technika ↓' : '' }}{{ x.problemMove ? ' · przechwyt' : '' }}@if (x.failurePoint) { · {{ x.failurePoint }} }</span>
+                <span class="num faint">RPE {{ x.rpe ?? '–' }} · P {{ x.forearmPump ?? '–' }}</span>
+                <span></span>
+              </li>
+            }
+          </ol>
+          <div class="charts">
+            <figure><figcaption class="eyebrow">Route timing · czy tempo spada?</figcaption>@if (timingChart(); as cfg) { <app-chart [config]="cfg" [height]="200" label="Czasy przejść kolejnych prób" /> }</figure>
+            <figure><figcaption class="eyebrow">Forearm pump · jak narasta zmęczenie?</figcaption>@if (pumpChart(); as cfg) { <app-chart [config]="cfg" [height]="200" label="Pompowanie po każdej próbie" /> }</figure>
+          </div>
+        </section>
+
+        <section class="r-sec full">
+          <header class="r-sec-head"><span class="num">06</span><h2>Recovery Curve</h2><span class="eyebrow">0–3 min</span></header>
+          <div class="recov">
+            @for (p of rc.points; track p.elapsedSeconds) {
+              <div class="slot"><span class="eyebrow">{{ p.elapsedSeconds / 60 }} min</span><div class="v">{{ p.pump ?? '–' }}<span class="unit">/10</span></div></div>
+            }
+          </div>
+          <div class="charts">
+            <figure><figcaption class="eyebrow">Jak szybko wraca komfort przedramion?</figcaption>@if (recoveryChart(); as cfg) { <app-chart [config]="cfg" [height]="200" label="Krzywa regeneracji przedramion" /> }</figure>
+            <dl class="kv">
+              <div><dt>Zmiana między pomiarami</dt><dd class="num">@for (d of rc.deltas; track d.to) { {{ signed(d.change) }}{{ $last ? '' : ' · ' }} }</dd></div>
+              <div class="em"><dt>Spadek o 50%</dt><dd class="num">{{ rc.halfRecovery === 'reached' ? 'po ' + rc.halfRecoverySeconds! / 60 + ' min' : rc.halfRecovery === 'not_reached' ? 'nie osiągnięto w okresie obserwacji' : 'nie dotyczy' }}</dd></div>
+              <div><dt>Pompa po 1. drodze</dt><dd class="num">{{ rc.pumpAfterFirstRoute ?? '–' }}/10</dd></div>
+              <div><dt>Pompa po ostatniej</dt><dd class="num">{{ rc.pumpAfterLastRoute ?? '–' }}/10</dd></div>
+              <div><dt>Różnica 1. → ost.</dt><dd class="num">{{ signed(rc.pumpRiseFirstToLast) }}</dd></div>
+            </dl>
+          </div>
+          <p class="foot-note">Standaryzowana ocena subiektywna – nie jest obiektywnym pomiarem fizjologicznym.</p>
+        </section>
+      }
+
+      <!-- =============== WNIOSKI =============== -->
+      <section class="r-sec full">
+        <header class="r-sec-head"><span class="num">07</span><h2>Wnioski</h2><span class="eyebrow">z rzeczywistych wyników</span></header>
+        <ul class="findings">
+          @for (l of k.lines; track l.text) {
+            <li [class]="l.kind"><span class="mark num">{{ l.kind === 'weakness' ? '−' : l.kind === 'strength' ? '+' : '·' }}</span><span>{{ l.text }}</span></li>
+          } @empty {
+            <li><span class="mark">·</span><span class="muted">Za mało danych do wniosków.</span></li>
+          }
+        </ul>
+        @if (k.missing.length) { <p class="foot-note">Niezmierzone: {{ k.missing.join(', ') }}.</p> }
+        @if (k.focus.length) {
+          <div class="focus">
+            <span class="kicker">Obszary wymagające największej pracy</span>
+            <ol>
+              @for (f of k.focus; track f.area; let i = $index) { <li><span class="num">{{ i + 1 < 10 ? '0' + (i + 1) : i + 1 }}</span>{{ f.label }}</li> }
+            </ol>
+            <p class="foot-note">Kolejność wg zasady testu: siła palców → powtarzalność → tempo przy zmęczeniu → pompowanie → regeneracja. Posłuży do personalizacji kolejnego cyklu.</p>
+          </div>
         }
-        @if (vsChart(); as cfg) { <app-chart [config]="cfg" [height]="220" label="Bezpośrednie porównanie wyników" /> }
-        <div class="table-wrap">
-          <table class="table">
-            <thead><tr><th>Wskaźnik</th><th class="num">Początkowo</th><th class="num">Teraz</th><th class="num">Zmiana</th><th class="num">%</th><th>Trend</th></tr></thead>
-            <tbody>
-              @for (row of cmp.rows; track row.key) {
-                <tr>
-                  <td>{{ row.label }}@if (row.note) { <small class="faint"> · {{ row.note }}</small> }</td>
-                  <td class="num">{{ row.initialValue ?? '–' }}{{ row.initialValue != null ? ' ' + row.unit : '' }}</td>
-                  <td class="num">{{ row.currentValue ?? '–' }}{{ row.currentValue != null ? ' ' + row.unit : '' }}</td>
-                  <td class="num">{{ signed(row.absoluteChange) }}</td>
-                  <td class="num">{{ row.percentageChange != null ? signed(row.percentageChange, '%') : '–' }}</td>
-                  <td [class]="trendClass(row.interpretation)">{{ trendText(row.interpretation) }}</td>
-                </tr>
-              }
-            </tbody>
-          </table>
-        </div>
-        <p class="faint">Każdy wskaźnik oceniany osobno – poprawa jednej wartości nie oznacza automatycznie poprawy wszystkich zdolności. Zmiana % tylko dla skal ilorazowych (kg całkowite, sekundy).</p>
+        <p class="foot-note">Wnioski dotyczą wyłącznie wyników testu i nie są diagnozą zdrowotną.</p>
       </section>
-    }
+
+      <!-- =============== PORÓWNANIE =============== -->
+      @if (comparison(); as cmp) {
+        @let b = counterpart()!;
+        <section class="r-sec full">
+          <header class="r-sec-head"><span class="num">08</span><h2>Baseline vs Retest</h2><span class="eyebrow">{{ (b.strength ?? b.climbing)!.date | datePl }} → {{ (t.strength ?? t.climbing)!.date | datePl }}</span></header>
+          @if (candidates().length && !demo) {
+            <label class="field">Porównaj z
+              <select [ngModel]="compareId() ?? counterpart()?.id ?? ''" (ngModelChange)="compareId.set($event || null)">
+                <option value="">– automatycznie –</option>
+                @for (x of candidates(); track x.id) { <option [value]="x.id">{{ kindLabels[x.kind] }} · {{ (x.strength ?? x.climbing)!.date | datePl }}</option> }
+              </select>
+            </label>
+          }
+          @if (cmp.conditions.limited) {
+            <div class="note warn"><strong>Porównanie ograniczone.</strong> @for (r of cmp.conditions.reasons; track r) { {{ r }} }</div>
+          } @else {
+            <p class="params">Warunki zgodne: krawądka, drążek, wariant core, droga, odpoczynek.</p>
+          }
+          @if (vsChart(); as cfg) { <figure class="wide-chart"><figcaption class="eyebrow">Punktacja i powtarzalność · szary = odniesienie</figcaption><app-chart [config]="cfg" [height]="220" label="Bezpośrednie porównanie wyników" /></figure> }
+          <div class="cmp">
+            <div class="cmp-head"><span>Wskaźnik</span><span>Początkowo → teraz</span><span>Zmiana</span><span>Trend</span></div>
+            @for (g of comparisonGroups(); track g.key) {
+              <div class="cmp-group eyebrow">{{ g.label }}</div>
+              @for (row of g.rows; track row.key) {
+                <div class="cmp-row">
+                  <span class="cmp-label">{{ row.label }}@if (row.note) { <small class="faint"> · {{ row.note }}</small> }</span>
+                  <span class="cmp-vals num">{{ row.initialValue ?? '–' }} → <strong>{{ row.currentValue ?? '–' }}</strong> <small>{{ row.unit }}</small></span>
+                  <span class="cmp-delta num">{{ signed(row.absoluteChange) }}@if (row.percentageChange != null) { <small> ({{ signed(row.percentageChange, '%') }})</small> }</span>
+                  <span class="cmp-trend" [class]="'cmp-trend ' + row.interpretation">{{ trendText(row.interpretation) }}</span>
+                </div>
+              }
+            }
+          </div>
+          <p class="foot-note">Każdy wskaźnik oceniany osobno – poprawa jednej wartości nie oznacza automatycznie poprawy wszystkich zdolności. Zmiana % tylko dla skal ilorazowych (kg całkowite, sekundy).</p>
+        </section>
+      }
+    </div>
   } @else {
-    <div class="card"><h2>Nie znaleziono testu</h2><a class="btn" routerLink="/progress">Progres</a></div>
+    <div class="note info">Nie znaleziono testu. <a routerLink="/progress">Progres</a></div>
   }
 </div>

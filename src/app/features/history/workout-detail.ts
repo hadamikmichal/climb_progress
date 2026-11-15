@@ -2,103 +2,133 @@ import { Component, computed, effect, inject, input, signal, untracked } from '@
 import { Router, RouterLink } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 import { AppStore } from '../../core/data/store';
-import { CompletedWorkout, GripPosition, HangboardLog, RouteLog } from '../../core/models/models';
+import { AscentStyle, CompletedWorkout, GripPosition, HangboardLog, RouteLog } from '../../core/models/models';
 import { assessSession, formatLoad } from '../../core/logic/progression';
 import { prescriptionLines } from '../../core/logic/describe';
 import { GRADES } from '../../core/logic/grades';
 import { now, uid } from '../../core/logic/ids';
-import { GRIP_LABELS, TEMPLATES, TYPE_SHORT } from '../../core/logic/templates';
+import { ASCENT_LABELS, GRIP_LABELS, TEMPLATES, TYPE_SHORT } from '../../core/logic/templates';
 import { DatePlPipe } from '../../shared/pipes';
+import { Icon } from '../../shared/icon';
+import { MetricItem, MetricRow } from '../progress/metric-row';
 
 /** Szczegóły zapisanego treningu z możliwością edycji */
 @Component({
   selector: 'app-workout-detail',
-  imports: [RouterLink, FormsModule, DatePlPipe],
+  imports: [RouterLink, FormsModule, DatePlPipe, Icon, MetricRow],
   template: `
     <div class="page">
       @if (w(); as w) {
         <header class="page-head">
           <div>
-            <div class="eyebrow">{{ w.date | datePl }} · {{ typeShort[w.type] }}@if (w.deload) { · deload / lżej }</div>
+            <div class="eyebrow">{{ w.date | datePl }} · {{ typeShort[w.type] }} · tydz. {{ w.week }}@if (w.deload) { · deload / lżej }</div>
             <h1>{{ templates[w.type].name }}</h1>
           </div>
           <div class="row">
-            <a class="btn sm" routerLink="/history">‹ Historia</a>
-            <button class="btn sm" [class.primary]="!editing()" type="button" (click)="toggleEdit()">{{ editing() ? 'Anuluj' : 'Edytuj' }}</button>
+            <a class="btn sm ghost" routerLink="/history"><app-icon name="arrow-left" /> Dziennik</a>
+            <button class="btn sm" [class.dark]="!editing()" type="button" (click)="toggleEdit()">@if (!editing()) { <app-icon name="edit" /> Edytuj } @else { Anuluj }</button>
           </div>
         </header>
 
         @if (!editing()) {
-          <section class="card">
-            <div class="grid-2 grid-md-3">
-              <div class="stat"><span class="value">{{ w.durationMin }}<small> min</small></span><span class="label">czas trwania</span></div>
-              <div class="stat"><span class="value">{{ w.completion === 'full' ? 'Pełny' : 'Częściowy' }}</span><span class="label">wykonanie</span></div>
-              <div class="stat"><span class="value">{{ w.rpe ?? '–' }}</span><span class="label">RPE</span></div>
-              <div class="stat"><span class="value">{{ w.pump ?? '–' }}<small>/10</small></span><span class="label">pompowanie</span></div>
-              <div class="stat"><span class="value">{{ w.technique ?? '–' }}<small>/5</small></span><span class="label">technika</span></div>
-              <div class="stat"><span class="value">{{ w.feelingAfter ?? '–' }}<small>/5</small></span><span class="label">samopoczucie po</span></div>
-            </div>
-            @if (w.notes) { <p><strong>Notatki:</strong> {{ w.notes }}</p> }
+          <app-metric-row [items]="metrics()" />
+
+          <section class="section">
+            <div class="section-head"><h3>Ocena sesji</h3><span class="eyebrow">{{ quality() }}</span></div>
+            <p class="facts mono">@for (f of assessment().facts; track f) { <span>{{ f }}</span> }</p>
+            @if (assessment().issues.length) { <p class="muted small">Uwagi: {{ assessment().issues.join(', ') }}.</p> }
+            @if (w.notes) { <blockquote class="notes">„{{ w.notes }}”</blockquote> }
           </section>
 
-          <section class="card">
-            <h3>Plan tej sesji</h3>
-            <ul class="presc">@for (l of presc(); track l) { <li>{{ l }}</li> }</ul>
-            <h3>Wykonane ćwiczenia</h3>
-            @for (e of w.exercises; track e.exerciseId) {
-              @if (e.kind !== 'technique') { <div>{{ e.done ? '✓' : '✗' }} {{ e.name }}</div> }
-            }
+          <section class="section two">
+            <div>
+              <h3>Plan sesji</h3>
+              <ul class="plain">@for (l of presc(); track l) { <li>{{ l }}</li> }</ul>
+            </div>
+            <div>
+              <h3>Wykonanie</h3>
+              <ul class="plain ticks">
+                @for (e of w.exercises; track e.exerciseId) {
+                  @if (e.kind !== 'technique') { <li [class.miss]="!e.done"><app-icon [name]="e.done ? 'check' : 'x'" /> {{ e.name }}</li> }
+                } @empty { <li class="miss">Brak zapisanej listy ćwiczeń.</li> }
+              </ul>
+            </div>
           </section>
 
           @if (w.hangs.length) {
-            <section class="card">
-              <h3>Beastmaker 2000</h3>
-              @for (h of w.hangs; track h.id) {
-                <p>{{ gripLabels[h.grip] }} · {{ h.edge }}@if (h.edgeSizeMm) { ({{ h.edgeSizeMm }} mm) } · {{ h.setsDone }}/{{ h.setsPlanned }} × {{ h.hangSec }} s · {{ fmtLoad(h) }} · RPE {{ h.rpe ?? '–' }}</p>
-                @if (h.pain) { <p class="note bad">Zgłoszony ból lub dyskomfort.</p> }
-              }
+            <section class="section">
+              <div class="section-head"><h3>Max Hangs · Beastmaker 2000</h3></div>
+              <div class="table-wrap">
+                <table class="table">
+                  <thead><tr><th>Krawądka</th><th>Chwyt</th><th class="num">Serie</th><th class="num">Obciążenie</th><th class="num">RPE</th></tr></thead>
+                  <tbody>
+                    @for (h of w.hangs; track h.id) {
+                      <tr>
+                        <td>{{ h.edge }}@if (h.edgeSizeMm) { <span class="mono"> · {{ h.edgeSizeMm }} mm</span> }</td>
+                        <td>{{ gripLabels[h.grip] }}</td>
+                        <td class="num">{{ h.setsDone }}/{{ h.setsPlanned }} × {{ h.hangSec }} s</td>
+                        <td class="num">{{ fmtLoad(h) }}</td>
+                        <td class="num">{{ h.rpe ?? '–' }}</td>
+                      </tr>
+                    }
+                  </tbody>
+                </table>
+              </div>
+              @for (h of w.hangs; track h.id) { @if (h.pain) { <p class="note warn">Zgłoszony ból lub dyskomfort podczas zwisów.</p> } }
             </section>
           }
 
           @if (w.routes.length) {
-            <section class="card">
-              <h3>Drogi ({{ sent() }}/{{ w.routes.length }} ukończone)</h3>
-              <table class="table">
-                <thead><tr>@if (w.type === 'C') { <th>Seria</th> }<th>#</th><th>Wycena</th><th>Wynik</th><th class="num">Pompa</th>@if (w.type === 'A') { <th>Crux</th> }</tr></thead>
-                <tbody>
-                  @for (r of w.routes; track r.id) {
-                    <tr>
-                      @if (w.type === 'C') { <td>{{ r.setIndex }}</td> }
-                      <td>{{ r.order }}</td><td>{{ r.grade }}</td><td>{{ r.completed ? 'ukończona' : 'odpadnięcie' }}</td><td class="num">{{ r.pump ?? '–' }}</td>
-                      @if (w.type === 'A') { <td>{{ r.cruxSent ? '✓' : '–' }}</td> }
-                    </tr>
-                  }
-                </tbody>
-              </table>
+            <section class="section">
+              <div class="section-head"><h3>Drogi</h3><span class="eyebrow">{{ sent() }}/{{ w.routes.length }} ukończone</span></div>
+              <div class="table-wrap">
+                <table class="table">
+                  <thead><tr>@if (w.type === 'C') { <th>Seria</th> }<th class="num">#</th><th>Wycena</th><th>Wynik</th>@if (w.type === 'A') { <th>Styl</th><th>Crux</th> }<th class="num">Pompa</th></tr></thead>
+                  <tbody>
+                    @for (r of w.routes; track r.id) {
+                      <tr>
+                        @if (w.type === 'C') { <td class="mono">{{ r.setIndex }}</td> }
+                        <td class="num">{{ r.order }}</td>
+                        <td class="mono"><strong>{{ r.grade }}</strong></td>
+                        <td [class.trend-worse]="!r.completed">{{ r.completed ? 'ukończona' : 'odpadnięcie' }}</td>
+                        @if (w.type === 'A') { <td class="mono">{{ r.ascent ? ascentLabels[r.ascent] : '–' }}</td><td>{{ r.cruxSent ? '✓' : '–' }}</td> }
+                        <td class="num">{{ r.pump ?? '–' }}</td>
+                      </tr>
+                    }
+                  </tbody>
+                </table>
+              </div>
             </section>
           }
 
           @if (w.sets.length) {
-            <section class="card">
-              <h3>Serie obwodu</h3>
-              @for (s of w.sets; track s.setIndex) {
-                <p>Seria {{ s.setIndex }}: RPE {{ s.rpe ?? '–' }} · pompa {{ s.pump ?? '–' }}/10@if (s.notes) { · {{ s.notes }} }</p>
-              }
+            <section class="section">
+              <div class="section-head"><h3>Serie obwodu</h3></div>
+              <div class="table-wrap">
+                <table class="table">
+                  <thead><tr><th>Seria</th><th class="num">RPE</th><th class="num">Pompa</th><th>Uwagi</th></tr></thead>
+                  <tbody>
+                    @for (s of w.sets; track s.setIndex) {
+                      <tr><td class="mono">{{ s.setIndex }}</td><td class="num">{{ s.rpe ?? '–' }}</td><td class="num">{{ s.pump ?? '–' }}</td><td class="muted">{{ s.notes || '–' }}</td></tr>
+                    }
+                  </tbody>
+                </table>
+              </div>
             </section>
           }
 
-          <section class="card">
-            <h3>Ocena sesji i decyzje planu</h3>
-            <div class="row wrap">@for (f of assessment().facts; track f) { <span class="tag">{{ f }}</span> }</div>
-            @if (assessment().issues.length) { <p class="muted">{{ assessment().issues.join(', ') }}</p> }
+          <section class="section">
+            <div class="section-head"><h3>Decyzje planu</h3></div>
             @for (e of events(); track e.id) {
               <div class="note" [class.ok]="e.kind === 'progress'" [class.warn]="e.kind === 'reduce'" [class.info]="e.kind === 'hold' || e.kind === 'deload'"><p>{{ e.reason }}</p></div>
+            } @empty {
+              <p class="muted small">Ta sesja nie zmieniła parametrów planu.</p>
             }
-            <p class="faint">Edycja historii nie zmienia wstecz już podjętych decyzji adaptacji – są zapisane jako zdarzenia z uzasadnieniem.</p>
+            <p class="faint small">Edycja historii nie zmienia wstecz już podjętych decyzji adaptacji – są zapisane jako zdarzenia z uzasadnieniem.</p>
           </section>
         } @else if (form(); as f) {
-          <section class="card">
-            <h3>Edycja</h3>
+          <section class="section">
+            <div class="section-head"><h3>Edycja sesji</h3></div>
             <div class="grid-2">
               <label class="field">Data<input type="date" [(ngModel)]="f.date" /></label>
               <label class="field">Czas trwania (min)<input type="number" min="1" [(ngModel)]="f.durationMin" /></label>
@@ -111,15 +141,15 @@ import { DatePlPipe } from '../../shared/pipes';
               <label class="field">Samopoczucie po (1–5)<input type="number" min="1" max="5" [(ngModel)]="f.feelingAfter" /></label>
             </div>
             <label class="field">Notatki<textarea [(ngModel)]="f.notes"></textarea></label>
-            <h3>Ćwiczenia</h3>
+            <h4>Ćwiczenia</h4>
             @for (e of f.exercises; track e.exerciseId) {
-              @if (e.kind !== 'technique') { <label class="row"><input type="checkbox" [(ngModel)]="e.done" /> {{ e.name }}</label> }
+              @if (e.kind !== 'technique') { <label class="check-line"><input type="checkbox" [(ngModel)]="e.done" /> {{ e.name }}</label> }
             }
           </section>
 
           @if (f.hangs.length || f.type === 'B') {
-            <section class="card">
-              <div class="card-title"><h3>Zwisy</h3>@if (!f.hangs.length) { <button class="btn sm" type="button" (click)="addHang(f)">+ Dodaj</button> }</div>
+            <section class="section">
+              <div class="section-head"><h3>Zwisy</h3>@if (!f.hangs.length) { <button class="btn sm" type="button" (click)="addHang(f)"><app-icon name="plus" /> Dodaj</button> }</div>
               @for (h of f.hangs; track h.id) {
                 <div class="grid-2">
                   <label class="field">Krawądka<input [(ngModel)]="h.edge" /></label>
@@ -131,40 +161,57 @@ import { DatePlPipe } from '../../shared/pipes';
                   <label class="field">Obciążenie +kg<input type="number" step="0.5" [(ngModel)]="h.addedKg" /></label>
                   <label class="field">Odciążenie −kg<input type="number" step="0.5" [(ngModel)]="h.assistKg" /></label>
                   <label class="field">RPE<input type="number" min="1" max="10" [(ngModel)]="h.rpe" /></label>
-                  <label class="row"><input type="checkbox" [(ngModel)]="h.pain" /> Ból / dyskomfort</label>
+                  <label class="check-line"><input type="checkbox" [(ngModel)]="h.pain" /> Ból / dyskomfort</label>
                 </div>
-                <button class="btn ghost sm" type="button" (click)="f.hangs = []">Usuń zwisy</button>
+                <button class="btn ghost sm" type="button" (click)="f.hangs = []"><app-icon name="trash" /> Usuń zwisy</button>
               }
             </section>
           }
 
-          <section class="card">
-            <div class="card-title"><h3>Drogi</h3><button class="btn sm" type="button" (click)="addRoute(f)">+ Droga</button></div>
+          <section class="section">
+            <div class="section-head"><h3>Drogi</h3><button class="btn sm" type="button" (click)="addRoute(f)"><app-icon name="plus" /> Droga</button></div>
             @for (r of f.routes; track r.id) {
-              <div class="edit-route">
+              <div class="edit-route" [class.with-set]="f.type === 'C'" [class.with-style]="f.type === 'A'">
                 @if (f.type === 'C') { <input type="number" min="1" [(ngModel)]="r.setIndex" aria-label="Seria" title="Seria" /> }
                 <select [(ngModel)]="r.grade" aria-label="Wycena">@for (g of grades; track g) { <option [value]="g">{{ g }}</option> }</select>
-                <label class="row"><input type="checkbox" [(ngModel)]="r.completed" /> ukończ.</label>
+                <label class="check-line"><input type="checkbox" [(ngModel)]="r.completed" /> ukończ.</label>
+                @if (f.type === 'A') {
+                  <select [(ngModel)]="r.ascent" aria-label="Styl przejścia" [disabled]="!r.completed">
+                    <option [ngValue]="null">styl –</option>
+                    @for (a of ascents; track a) { <option [ngValue]="a">{{ ascentLabels[a] }}</option> }
+                  </select>
+                }
                 <input type="number" min="0" max="10" [(ngModel)]="r.pump" placeholder="pompa" aria-label="Pompowanie" />
-                <button class="btn ghost sm" type="button" (click)="removeRoute(f, r.id)" aria-label="Usuń drogę">✕</button>
+                <button class="btn ghost sm" type="button" (click)="removeRoute(f, r.id)" aria-label="Usuń drogę"><app-icon name="x" /></button>
               </div>
             } @empty { <p class="empty">Brak dróg.</p> }
           </section>
 
           <div class="btn-row">
             <button class="btn primary big" type="button" (click)="save(f)" [disabled]="busy()">Zapisz zmiany</button>
-            <button class="btn danger" type="button" (click)="remove(w)">Usuń trening</button>
+            <button class="btn danger" type="button" (click)="remove(w)"><app-icon name="trash" /> Usuń trening</button>
           </div>
         }
       } @else {
-        <div class="card"><h2>Nie znaleziono treningu</h2><a class="btn" routerLink="/history">Historia</a></div>
+        <p class="empty">Nie znaleziono treningu. <a routerLink="/history">Wróć do dziennika</a></p>
       }
     </div>
   `,
   styles: `
-    .presc { margin: 0; padding-left: 18px; }
-    .edit-route { display: grid; grid-template-columns: 52px 1fr auto 70px auto; gap: 6px; align-items: center; }
-    .edit-route:not(:has(input[title='Seria'])) { grid-template-columns: 1fr auto 70px auto; }
+    .btn app-icon { --icon: 16px; }
+    .facts { display: flex; flex-wrap: wrap; gap: 2px 14px; font-size: 0.82rem; margin: 0; }
+    .notes { margin: 0; padding-left: 12px; border-left: 2px solid var(--border-strong); font-style: italic; color: var(--text); }
+    .two { display: grid; grid-template-columns: 1fr; gap: 16px; }
+    @media (min-width: 768px) { .two { grid-template-columns: 1fr 1fr; } }
+    .two > div { display: flex; flex-direction: column; gap: 8px; }
+    .plain { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; font-size: 0.9rem; }
+    .plain li { padding: 7px 0; border-bottom: 1px solid var(--border); }
+    .ticks li { display: flex; align-items: center; gap: 8px; --icon: 16px; }
+    .ticks li.miss { color: var(--muted); }
+    .ticks li.miss app-icon { color: var(--warn); }
+    .edit-route { display: grid; grid-template-columns: 1fr auto 70px auto; gap: 6px; align-items: center; padding: 6px 0; border-bottom: 1px solid var(--border); }
+    .edit-route.with-set { grid-template-columns: 52px 1fr auto 70px auto; }
+    .edit-route.with-style { grid-template-columns: 1fr auto 88px 64px auto; }
   `,
 })
 export class WorkoutDetail {
@@ -178,6 +225,8 @@ export class WorkoutDetail {
   protected readonly grips = Object.keys(GRIP_LABELS) as GripPosition[];
   protected readonly grades = GRADES;
   protected readonly fmtLoad = formatLoad;
+  protected readonly ascentLabels = ASCENT_LABELS;
+  protected readonly ascents = Object.keys(ASCENT_LABELS) as AscentStyle[];
 
   protected readonly editing = signal(false);
   protected readonly busy = signal(false);
@@ -186,6 +235,18 @@ export class WorkoutDetail {
   protected readonly w = computed(() => this.store.completed().find((x) => x.id === this.id()) ?? null);
   protected readonly presc = computed(() => (this.w() ? prescriptionLines(this.w()!.type, this.w()!.prescription) : []));
   protected readonly assessment = computed(() => assessSession(this.w()!));
+  protected readonly quality = computed(() => ({ good: 'dobra sesja', ok: 'bez progresji', bad: 'sesja za ciężka' })[this.assessment().quality]);
+  protected readonly metrics = computed<MetricItem[]>(() => {
+    const w = this.w()!;
+    return [
+      { label: 'Czas', value: String(w.durationMin), unit: 'min' },
+      { label: 'Wykonanie', value: w.completion === 'full' ? 'pełne' : 'częściowe' },
+      { label: 'RPE', value: w.rpe != null ? String(w.rpe) : '–', unit: '/10' },
+      { label: 'Pompowanie', value: w.pump != null ? String(w.pump) : '–', unit: '/10' },
+      { label: 'Technika', value: w.technique != null ? String(w.technique) : '–', unit: '/5' },
+      { label: 'Po treningu', value: w.feelingAfter != null ? String(w.feelingAfter) : '–', unit: '/5' },
+    ];
+  });
   protected readonly sent = computed(() => this.w()?.routes.filter((r) => r.completed).length ?? 0);
   protected readonly events = computed(() => this.store.eventsSorted().filter((e) => e.sourceIds.includes(this.id())));
 
@@ -234,7 +295,7 @@ export class WorkoutDetail {
       ...f,
       durationMin: Number(f.durationMin) || 1,
       rpe: num(f.rpe), pump: num(f.pump), technique: num(f.technique), feelingAfter: num(f.feelingAfter),
-      routes: f.routes.map((r) => ({ ...r, pump: num(r.pump), setIndex: Number(r.setIndex) || 0 })),
+      routes: f.routes.map((r) => ({ ...r, pump: num(r.pump), setIndex: Number(r.setIndex) || 0, ascent: r.completed ? r.ascent ?? null : null })),
       hangs: f.hangs.map((h) => ({
         ...h, date: f.date, edgeSizeMm: num(h.edgeSizeMm), hangSec: Number(h.hangSec) || 10, setsDone: Number(h.setsDone) || 0, setsPlanned: Number(h.setsPlanned) || 0,
         addedKg: Number(h.addedKg) || 0, assistKg: Number(h.assistKg) || 0, rpe: num(h.rpe),

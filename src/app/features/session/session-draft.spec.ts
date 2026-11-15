@@ -1,4 +1,4 @@
-import { draftToCompleted, missingParts, newDraft } from './session-draft';
+import { advanceTimers, draftToCompleted, missingParts, newDraft, startHang } from './session-draft';
 import { createCycle } from '../../core/logic/plan';
 import { initialParams, defaultProfile } from '../../core/logic/templates';
 import { PlannedWorkout, TrainingType } from '../../core/models/models';
@@ -74,5 +74,31 @@ describe('szkic sesji – wykonanie pełne vs częściowe', () => {
     expect(draftToCompleted(d, planned('B'), cycle, ts, '2026-01-05').completion).toBe('full');
     d.forcePartial = true;
     expect(draftToCompleted(d, planned('B'), cycle, ts, '2026-01-05').completion).toBe('partial');
+  });
+
+  it('timer zwisów: zakończony zwis zalicza serię i uruchamia przerwę od momentu końca zwisu', () => {
+    const d = newDraft(planned('B'), params, false, false, ts, false);
+    const t0 = Date.parse(ts);
+    startHang(d, ts);
+    expect(advanceTimers(d, t0 + 5_000)).toBe(false);
+    // aplikacja wraca po 30 s: zwis (10 s) zakończony, przerwa trwa od 10. sekundy
+    expect(advanceTimers(d, t0 + 30_000)).toBe(true);
+    expect(d.hang!.setsDone).toBe(1);
+    expect(d.timer!.kind).toBe('rest');
+    expect(Date.parse(d.timer!.startedAt)).toBe(t0 + 10_000);
+    // po przerwie timer jest pusty – czeka na start kolejnego zwisu
+    advanceTimers(d, t0 + 10_000 + params.hangboard.restSec * 1000);
+    expect(d.timer).toBeNull();
+  });
+
+  it('timer zwisów: po ostatniej serii nie ma przerwy, nie przekracza planu', () => {
+    const d = newDraft(planned('B'), params, false, false, ts, false);
+    d.hang!.setsDone = d.hang!.setsPlanned - 1;
+    startHang(d, ts);
+    advanceTimers(d, Date.parse(ts) + 60_000);
+    expect(d.hang!.setsDone).toBe(d.hang!.setsPlanned);
+    expect(d.timer).toBeNull();
+    startHang(d, ts);
+    expect(d.timer).toBeNull();
   });
 });

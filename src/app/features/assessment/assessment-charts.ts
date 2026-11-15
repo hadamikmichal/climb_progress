@@ -8,8 +8,9 @@ const css = (n: string, f: string) => (typeof document !== 'undefined' ? getComp
 
 export function palette() {
   return {
-    accent: css('--accent', '#d6f54a'), ok: css('--ok', '#5fd08a'), bad: css('--bad', '#f07a7a'), warn: css('--warn', '#f2b84b'),
-    info: css('--info', '#7cb4f5'), faint: css('--faint', '#6b747d'), muted: css('--muted', '#9aa3ac'),
+    // ograniczona paleta: grafit = bieżący wynik, kamień = odniesienie, pomarańcz = ryzyko, oliwka = drugi parametr
+    accent: css('--chart-1', '#181c19'), ok: css('--chart-4', '#263019'), bad: css('--chart-3', '#d96c45'), warn: css('--chart-3', '#d96c45'),
+    info: css('--chart-2', '#777c74'), faint: '#c3c4bb', muted: css('--chart-2', '#777c74'),
   };
 }
 
@@ -20,22 +21,29 @@ const withClimbing = (xs: Assessment[]) => xs.filter((a) => a.climbing && a.clim
 
 /* ---------- 1–4: trendy siłowe w kolejnych testach ---------- */
 
-/** 1. Max Finger Strength – obciążenie całkowite i dodatkowe */
+/** 1. Max Finger Strength – obciążenie całkowite (słupki) i masa ciała z dnia testu (linia); różnica = ciężar dodatkowy */
 export function fingerTrendChart(xs: Assessment[]): ChartConfiguration | null {
   const rows = withStrength(xs).map((a) => ({ a, r: strengthResults(a.strength!).finger })).filter((x) => x.r.totalLoadKg != null);
   if (!rows.length) return null;
   const c = palette();
+  const added = (r: (typeof rows)[number]['r']) => (r.addedWeightKg ?? 0) - (r.assistanceKg ?? 0);
   return {
-    type: 'line',
+    type: 'bar',
     data: {
       labels: rows.map((x) => short(x.a)),
       datasets: [
-        { label: 'Obciążenie całkowite (kg)', data: rows.map((x) => x.r.totalLoadKg), borderColor: c.accent, backgroundColor: c.accent, yAxisID: 'y', tension: 0 },
-        { label: 'Dodatkowe (kg, − = odciążenie)', data: rows.map((x) => (x.r.addedWeightKg ?? 0) - (x.r.assistanceKg ?? 0)), borderColor: c.info, backgroundColor: c.info, yAxisID: 'y1', borderDash: [4, 4], tension: 0 },
+        { type: 'line', label: 'Masa ciała (kg)', data: rows.map((x) => x.r.bodyMassKg), borderColor: c.info, backgroundColor: c.info, borderDash: [4, 4], pointRadius: 3, order: 0 },
+        { type: 'bar', label: 'Obciążenie całkowite (kg)', data: rows.map((x) => x.r.totalLoadKg), backgroundColor: c.accent, maxBarThickness: 56, order: 1 },
       ],
     },
-    options: { scales: { y: { position: 'left', title: { display: true, text: 'całkowite' } }, y1: { position: 'right', grid: { drawOnChartArea: false }, title: { display: true, text: 'dodatkowe' } } } },
-  };
+    options: {
+      plugins: {
+        legend: { labels: { usePointStyle: true } },
+        tooltip: { callbacks: { afterBody: (items) => { const r = rows[items[0].dataIndex].r; const a = added(r); return `dodatkowe: ${a >= 0 ? '+' : '−'}${Math.abs(a)} kg · ${Math.round((r.bodyMassRatioPercent ?? 0) * 10) / 10}% m.c.`; } } },
+      },
+      scales: { y: { beginAtZero: false, suggestedMin: Math.min(...rows.map((x) => x.r.bodyMassKg ?? 0)) - 10, ticks: { callback: (v) => `${v} kg` } }, x: { grid: { display: false } } },
+    },
+  } as ChartConfiguration;
 }
 
 /** 2. Weighted Pull-up – obciążenie dodatkowe */
@@ -81,7 +89,8 @@ export function deadHangTrendChart(xs: Assessment[]): ChartConfiguration | null 
 
 const seriesColors = () => {
   const c = palette();
-  return [c.faint, c.info, c.warn, c.accent];
+  // starsze testy jaśniej, bieżący grafitem; pomarańcz zarezerwowany dla ryzyka
+  return [c.ok, c.faint, c.info, c.accent];
 };
 
 /** 5. Route Timing – czasy przejść kolejnych prób */

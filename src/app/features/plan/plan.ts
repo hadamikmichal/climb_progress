@@ -6,66 +6,72 @@ import { cycleWeek, isDeloadWeek, stageLabel } from '../../core/logic/plan';
 import { prescriptionLines } from '../../core/logic/describe';
 import { PlannedCard } from './planned-card';
 import { DatePlPipe } from '../../shared/pipes';
+import { Icon } from '../../shared/icon';
+import { isPending, slotViolations } from '../../core/logic/scheduling';
+import { isHeavy, TEMPLATES } from '../../core/logic/templates';
+import { WEEKDAY_SHORT } from '../../core/logic/dates';
 
 @Component({
   selector: 'app-plan',
-  imports: [PlannedCard, DatePlPipe, RouterLink],
+  imports: [PlannedCard, DatePlPipe, RouterLink, Icon],
   template: `
     <div class="page">
       @let c = store.cycle();
       <header class="page-head">
         <div>
-          <div class="eyebrow">Plan treningowy@if (c) { · {{ c.name }} }</div>
+          <span class="eyebrow">Plan treningowy@if (c) { · {{ c.name }} }</span>
           <h1>{{ title() }}</h1>
-          @if (c) { <p class="muted">{{ stage() }} · {{ weekStart() | datePl }} – {{ weekEnd() | datePl }}</p> }
+          @if (c) { <span class="eyebrow">{{ stage() }} · {{ weekStart() | datePl }} – {{ weekEnd() | datePl }}</span> }
         </div>
-        <div class="row">
-          <button class="btn" type="button" (click)="shift(-1)" aria-label="Poprzedni tydzień">‹</button>
-          <button class="btn" type="button" (click)="offset.set(0)">Dziś</button>
-          <button class="btn" type="button" (click)="shift(1)" aria-label="Następny tydzień">›</button>
+        <div class="weeknav">
+          <button class="btn" type="button" (click)="shift(-1)" aria-label="Poprzedni tydzień"><app-icon name="chevron-left" /></button>
+          <button class="btn" type="button" (click)="offset.set(0)" [disabled]="offset() === 0">Dziś</button>
+          <button class="btn" type="button" (click)="shift(1)" aria-label="Następny tydzień"><app-icon name="chevron-right" /></button>
         </div>
       </header>
 
       @if (!c) {
-        <div class="card"><p>Brak aktywnego cyklu. <a routerLink="/">Rozpocznij cykl</a> od testu początkowego.</p></div>
+        <p class="empty">Brak aktywnego cyklu. <a routerLink="/">Rozpocznij cykl</a> od Baseline Test.</p>
       } @else {
         @if (deload()) {
-          <div class="note warn">Tydzień deload: mniejsza objętość (mniej serii zwisów, dróg i obwodów). Sesje deload nie wpływają na progresję.</div>
+          <div class="note warn">Tydzień deload: mniej serii zwisów, dróg i obwodów. Sesje deload nie wpływają na progresję.</div>
         }
-        <div class="stack">
-          @for (d of days(); track d.date) {
-            <section class="day" [class.today]="d.date === store.today()">
-              <div class="day-head">
-                <strong>{{ d.name }}</strong>
-                <span class="muted">{{ d.date | datePl }}</span>
-                @if (d.date === store.today()) { <span class="badge accent plain">dziś</span> }
-              </div>
-              @for (p of d.items; track p.id) {
-                <app-planned-card [workout]="p" />
-              } @empty {
-                <p class="rest">Odpoczynek</p>
-              }
-            </section>
-          }
-        </div>
+        @if (conflictCount()) {
+          <div class="note warn"><strong>{{ conflictCount() }} {{ conflictCount() === 1 ? 'konflikt' : 'konflikty' }} w tym tygodniu.</strong> Ciężkie jednostki dzień po dniu lub zbyt wiele dni z rzędu – przełóż lub zastąp oznaczoną sesję.</div>
+        }
 
-        <section class="card">
-          <h3>Aktualny poziom obciążenia</h3>
-          <div class="grid-md-3">
-            <div class="stack-sm"><strong>A – trudne drogi</strong>@for (l of levels().A; track l) { <small>{{ l }}</small> }</div>
-            <div class="stack-sm"><strong>B – Max Hangs + tlenowa</strong>@for (l of levels().B; track l) { <small>{{ l }}</small> }</div>
-            <div class="stack-sm"><strong>C – wytrzymałość siłowa</strong>@for (l of levels().C; track l) { <small>{{ l }}</small> }</div>
+        <ol class="days">
+          @for (d of days(); track d.date) {
+            <li class="day" [class.today]="d.date === store.today()" [class.rest]="!d.items.length">
+              <div class="day-label">
+                <span class="mono dn">{{ d.short }}</span>
+                <span class="mono dd">{{ d.dm }}</span>
+              </div>
+              <div class="day-body">
+                @for (p of d.items; track p.id) {
+                  <app-planned-card [workout]="p" />
+                } @empty {
+                  <div class="recovery"><span class="eyebrow">Regeneracja</span></div>
+                }
+              </div>
+            </li>
+          }
+        </ol>
+
+        <section class="section">
+          <div class="section-head"><span class="eyebrow">Aktualny poziom obciążenia</span><a class="eyebrow link" routerLink="/profile">Zmień →</a></div>
+          <div class="levels">
+            @for (l of levelRows(); track l.code) {
+              <div class="level"><span class="type-chip">{{ l.code }}</span><div class="grow"><strong>{{ l.name }}</strong>@for (x of l.lines; track x) { <span class="mono small">{{ x }}</span> }</div></div>
+            }
           </div>
-          <p class="faint">Parametry zmienia moduł adaptacji (po dwóch dobrych sesjach – jeden parametr naraz) lub Ty w Profilu.</p>
+          <p class="faint small">Parametry zmienia moduł adaptacji (po dwóch dobrych sesjach – jeden parametr naraz) albo Ty w Profilu.</p>
         </section>
 
-        <section class="card">
-          <h3>Historia zmian planu</h3>
+        <section class="section">
+          <div class="section-head"><span class="eyebrow">Historia zmian planu</span></div>
           @for (e of events(); track e.id) {
-            <div class="note" [class.ok]="e.kind === 'progress'" [class.warn]="e.kind === 'reduce' || e.kind === 'readiness'" [class.info]="e.kind === 'reschedule'" [class.bad]="e.kind === 'skip'">
-              <small class="faint">{{ e.timestamp | datePl }}</small>
-              <p>{{ e.reason }}</p>
-            </div>
+            <p class="event" [class.warn]="e.kind === 'reduce' || e.kind === 'skip' || e.kind === 'readiness'"><span class="mono faint">{{ e.timestamp | datePl }}</span> {{ e.reason }}</p>
           } @empty { <p class="empty">Brak zmian.</p> }
           @if (store.eventsSorted().length > limit()) {
             <button class="btn ghost" type="button" (click)="limit.set(limit() + 20)">Pokaż starsze</button>
@@ -75,10 +81,27 @@ import { DatePlPipe } from '../../shared/pipes';
     </div>
   `,
   styles: `
-    .day { display: flex; flex-direction: column; gap: 8px; }
-    .day-head { display: flex; align-items: baseline; gap: 10px; padding: 0 4px; }
-    .day.today .day-head strong { color: var(--accent); }
-    .rest { color: var(--faint); font-size: 0.88rem; padding: 10px 14px; border: 1px dashed var(--border); border-radius: var(--radius); }
+    .weeknav { display: flex; gap: 6px; --icon: 18px; }
+    .weeknav .btn { min-width: 48px; min-height: 48px; padding: 0 12px; }
+    .days { list-style: none; margin: 0; padding: 0; }
+    .day { display: grid; grid-template-columns: 56px minmax(0, 1fr); gap: 12px; padding: 12px 0; border-bottom: 1px solid var(--border); }
+    .day-label { display: flex; flex-direction: column; gap: 2px; padding-top: 6px; }
+    .dn { text-transform: uppercase; font-weight: 600; font-size: 0.85rem; }
+    .dd { font-size: 0.75rem; color: var(--muted); }
+    .day.today .dn { background: var(--accent); color: var(--accent-ink); padding: 1px 6px; border-radius: 4px; align-self: flex-start; }
+    .day-body { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+    .recovery {
+      min-height: 44px; display: flex; align-items: center; padding: 0 12px; border-radius: 6px;
+      background: repeating-linear-gradient(-45deg, transparent 0 6px, var(--surface-2) 6px 7px);
+    }
+    .levels { display: grid; gap: 12px; }
+    @media (min-width: 768px) { .levels { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+    .level { display: flex; gap: 12px; align-items: flex-start; }
+    .level .grow { display: flex; flex-direction: column; gap: 2px; }
+    .event { font-size: 0.88rem; padding: 8px 0; border-bottom: 1px solid var(--border); }
+    .event.warn { box-shadow: inset 3px 0 0 var(--warn); padding-left: 10px; }
+    .link { text-decoration: none; color: var(--text); }
+    .small { font-size: 0.8rem; }
   `,
 })
 export class PlanPage {
@@ -112,13 +135,24 @@ export class PlanPage {
     const items = this.store.cyclePlanned();
     return Array.from({ length: 7 }, (_, i) => {
       const date = addDays(this.weekStart(), i);
-      return { date, name: WEEKDAY_NAMES[weekdayOf(date)], items: items.filter((p) => p.date === date) };
+      const prev = addDays(date, -1);
+      const afterHeavy = items.some((p) => p.date === prev && p.status !== 'skipped' && isHeavy(p.type));
+      return {
+        date, name: WEEKDAY_NAMES[weekdayOf(date)], short: WEEKDAY_SHORT[weekdayOf(date)], dm: `${date.slice(8, 10)}.${date.slice(5, 7)}`,
+        items: items.filter((p) => p.date === date), afterHeavy,
+      };
     });
   });
-  protected readonly levels = computed(() => {
+  protected readonly levelRows = computed(() => {
     const c = this.store.cycle();
-    if (!c) return { A: [] as string[], B: [] as string[], C: [] as string[] };
-    return { A: prescriptionLines('A', c.params), B: prescriptionLines('B', c.params), C: prescriptionLines('C', c.params) };
+    if (!c) return [];
+    return (['A', 'B', 'C'] as const).map((t) => ({ code: t, name: TEMPLATES[t].name, lines: prescriptionLines(t, c.params) }));
+  });
+  /** Liczba niezrealizowanych sesji tygodnia z konfliktem regeneracyjnym */
+  protected readonly conflictCount = computed(() => {
+    const all = this.store.cyclePlanned();
+    return this.days().flatMap((d) => d.items)
+      .filter((p) => isPending(p.status) && slotViolations(all, p.type, p.date, [p.id]).some((v) => !v.includes('jest już zaplanowany'))).length;
   });
   protected readonly events = computed(() => this.store.eventsSorted().slice(0, this.limit()));
 
