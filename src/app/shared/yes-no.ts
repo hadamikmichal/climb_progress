@@ -10,10 +10,10 @@ import { Component, input, model } from '@angular/core';
   `,
   styles: `
     .yn { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; }
-    button { min-height: 48px; border-radius: 6px; border: 1px solid var(--border); background: var(--surface); color: var(--text);
+    button { min-height: 48px; border-radius: 6px; border: 1px solid var(--color-border); background: var(--color-surface); color: var(--color-text-primary);
       font: 600 0.95rem var(--font-heading); cursor: pointer; transition: background 120ms var(--ease); }
-    button.on { background: var(--select-bg); color: var(--select-ink); border-color: var(--select-bg); }
-    button.on.warn { background: var(--warn); border-color: var(--warn); color: #181c19; }
+    button.on { background: var(--color-selected-bg); color: var(--color-selected-fg); border-color: var(--color-selected-border); }
+    button.on.warn { background: var(--color-warning); border-color: var(--color-warning); color: var(--color-on-accent); }
   `,
 })
 export class YesNo {

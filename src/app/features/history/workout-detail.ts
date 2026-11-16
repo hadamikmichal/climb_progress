@@ -200,16 +200,16 @@ import { MetricItem, MetricRow } from '../progress/metric-row';
   styles: `
     .btn app-icon { --icon: 16px; }
     .facts { display: flex; flex-wrap: wrap; gap: 2px 14px; font-size: 0.82rem; margin: 0; }
-    .notes { margin: 0; padding-left: 12px; border-left: 2px solid var(--border-strong); font-style: italic; color: var(--text); }
+    .notes { margin: 0; padding-left: 12px; border-left: 2px solid var(--color-border-strong); font-style: italic; color: var(--color-text-primary); }
     .two { display: grid; grid-template-columns: 1fr; gap: 16px; }
     @media (min-width: 768px) { .two { grid-template-columns: 1fr 1fr; } }
     .two > div { display: flex; flex-direction: column; gap: 8px; }
     .plain { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; font-size: 0.9rem; }
-    .plain li { padding: 7px 0; border-bottom: 1px solid var(--border); }
+    .plain li { padding: 7px 0; border-bottom: 1px solid var(--color-border); }
     .ticks li { display: flex; align-items: center; gap: 8px; --icon: 16px; }
-    .ticks li.miss { color: var(--muted); }
-    .ticks li.miss app-icon { color: var(--warn); }
-    .edit-route { display: grid; grid-template-columns: 1fr auto 70px auto; gap: 6px; align-items: center; padding: 6px 0; border-bottom: 1px solid var(--border); }
+    .ticks li.miss { color: var(--color-text-secondary); }
+    .ticks li.miss app-icon { color: var(--color-warning); }
+    .edit-route { display: grid; grid-template-columns: 1fr auto 70px auto; gap: 6px; align-items: center; padding: 6px 0; border-bottom: 1px solid var(--color-border); }
     .edit-route.with-set { grid-template-columns: 52px 1fr auto 70px auto; }
     .edit-route.with-style { grid-template-columns: 1fr auto 88px 64px auto; }
   `,

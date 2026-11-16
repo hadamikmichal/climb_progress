@@ -30,9 +30,9 @@ import { DatePlPipe } from '../../shared/pipes';
   `,
   styles: `
     .opts { display: flex; flex-direction: column; gap: 6px; }
-    .opt { display: flex; align-items: flex-start; gap: 12px; padding: 12px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface); color: var(--text); text-align: left; font: inherit; cursor: pointer; }
-    .opt.on { border-color: var(--text); box-shadow: inset 3px 0 0 var(--accent); }
-    .opt small { display: block; color: var(--muted); }
+    .opt { display: flex; align-items: flex-start; gap: 12px; padding: 12px; border: 1px solid var(--color-border); border-radius: 8px; background: var(--color-surface); color: var(--color-text-primary); text-align: left; font: inherit; cursor: pointer; }
+    .opt.on { border-color: var(--color-text-primary); box-shadow: inset 3px 0 0 var(--color-primary); }
+    .opt small { display: block; color: var(--color-text-secondary); }
   `,
 })
 export class ReplaceSheet {

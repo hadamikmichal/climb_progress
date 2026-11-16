@@ -85,14 +85,14 @@ const LABELS: Record<FigureKind, string> = {
     </figure>
   `,
   styles: `
-    :host { display: block; color: var(--text); }
-    .fig { margin: 0; padding: 10px 12px 8px; border: 1px solid var(--border); border-radius: var(--radius); display: flex; flex-direction: column; gap: 4px; }
-    .lbl { font-family: var(--font-mono); font-size: 0.62rem; letter-spacing: 0.1em; color: var(--muted); }
+    :host { display: block; color: var(--color-text-primary); }
+    .fig { margin: 0; padding: 10px 12px 8px; border: 1px solid var(--color-border); border-radius: var(--radius); display: flex; flex-direction: column; gap: 4px; }
+    .lbl { font-family: var(--font-mono); font-size: 0.62rem; letter-spacing: 0.1em; color: var(--color-text-secondary); }
     svg { width: 100%; max-width: 240px; height: auto; display: block; margin: 0 auto; }
-    svg text { font-family: var(--font-mono); font-size: 7.5px; letter-spacing: 0.04em; fill: var(--muted); stroke: none; }
-    .acc { fill: var(--accent); stroke: var(--accent-strong); }
-    .acc-stroke { stroke: var(--accent-strong); }
-    .cap { font-family: var(--font-mono); font-size: 0.68rem; color: var(--muted); }
+    svg text { font-family: var(--font-mono); font-size: 7.5px; letter-spacing: 0.04em; fill: var(--color-text-secondary); stroke: none; }
+    .acc { fill: var(--color-primary); stroke: var(--color-primary-strong); }
+    .acc-stroke { stroke: var(--color-primary-strong); }
+    .cap { font-family: var(--font-mono); font-size: 0.68rem; color: var(--color-text-secondary); }
   `,
 })
 export class TestFigure {

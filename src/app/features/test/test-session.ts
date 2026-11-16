@@ -32,9 +32,9 @@ interface TestDraft {
   templateUrl: './test-session.html',
   styles: `
     .seg { display: flex; gap: 6px; }
-    .seg button { flex: 1; min-height: 48px; border-radius: 6px; border: 1px solid var(--border); background: transparent; color: var(--muted); font: 500 0.75rem var(--font-mono); text-transform: uppercase; letter-spacing: 0.06em; cursor: pointer; }
-    .seg button.on { color: var(--select-ink); border-color: var(--select-bg); background: var(--select-bg); }
-    .seg button.done { color: var(--text); }
+    .seg button { flex: 1; min-height: 48px; border-radius: 6px; border: 1px solid var(--color-border); background: transparent; color: var(--color-text-secondary); font: 500 0.75rem var(--font-mono); text-transform: uppercase; letter-spacing: 0.06em; cursor: pointer; }
+    .seg button.on { color: var(--color-selected-fg); border-color: var(--color-selected-border); background: var(--color-selected-bg); }
+    .seg button.done { color: var(--color-text-primary); }
     ol { margin: 0; padding-left: 20px; display: flex; flex-direction: column; gap: 4px; }
     .stepper { display: grid; grid-template-columns: 56px 1fr 56px; align-items: center; gap: 8px; text-align: center; }
     .stepper .num { font: 500 1.8rem var(--font-mono); }

@@ -40,7 +40,7 @@ import { DatePlPipe } from '../../shared/pipes';
       }
     </app-sheet>
   `,
-  styles: `.advice { margin: 8px 0 0; padding-left: 18px; color: var(--muted); font-size: 0.88rem; }`,
+  styles: `.advice { margin: 8px 0 0; padding-left: 18px; color: var(--color-text-secondary); font-size: 0.88rem; }`,
 })
 export class MissedSheet {
   private readonly store = inject(AppStore);

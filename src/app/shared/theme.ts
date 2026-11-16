@@ -1,12 +1,12 @@
 import { computed, Injectable, signal } from '@angular/core';
 
-/** Preferencja motywu: jasny, ciemny albo zgodny z ustawieniem systemu */
+/** Preferencja motywu: Nordic Alpine ciemny (domyślny), jasny albo zgodny z ustawieniem systemu */
 export type ThemePref = 'light' | 'dark' | 'auto';
 export type ResolvedTheme = 'light' | 'dark';
 
 /** Klucz w localStorage – czytany też przez skrypt w index.html, żeby uniknąć mignięcia złego motywu */
 export const THEME_KEY = 'climbprogress.theme';
-const DEFAULT_PREF: ThemePref = 'light';
+const DEFAULT_PREF: ThemePref = 'dark';
 
 function readPref(): ThemePref {
   try {

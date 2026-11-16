@@ -73,7 +73,7 @@ const r1 = (n: number | null) => (n == null ? '–' : String(Math.round(n * 10) 
                   <tr>
                     <td>{{ g.edge }}<br /><small class="muted">{{ g.gripLabel }}</small></td><td class="num">{{ g.points.length }}</td><td class="num">{{ kg(g.first) }}</td>
                     <td class="num" [class.trend-better]="g.last > g.first" [class.trend-worse]="g.last < g.first">{{ kg(g.last) }}</td>
-                    <td class="num">{{ kg(g.best) }}</td>
+                    <td class="num record">{{ kg(g.best) }}</td>
                   </tr>
                 }
               </tbody>
