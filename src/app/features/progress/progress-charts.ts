@@ -18,13 +18,19 @@ const lineLegend = { legend: { labels: { usePointStyle: true, pointStyle: 'line'
 export function hangLoadChart(g: HangSeries | null): ChartConfiguration | null {
   if (!g?.points.length) return null;
   const c = palette();
+  let best = -Infinity;
+  const record = g.points.map((p, i) => { const r = i > 0 && p.load > best; best = Math.max(best, p.load); return r; });
   return {
     type: 'line',
     data: {
       labels: g.points.map((p) => dm(p.date)),
       datasets: [{
         label: 'Obciążenie efektywne (kg)', data: g.points.map((p) => p.load), borderColor: c.accent, backgroundColor: c.accent, tension: 0,
-        pointBackgroundColor: g.points.map((p) => (p.pain ? c.warn : c.accent)), pointRadius: g.points.map((p) => (p.pain ? 5 : 3.5)),
+        // nowy rekord obciążenia = Chalk Lime z obwódką Forest; ból = Scree
+        pointBackgroundColor: g.points.map((p, i) => (p.pain ? c.warn : record[i] ? c.record : c.accent)),
+        pointBorderColor: g.points.map((p) => (p.pain ? c.warn : c.accent)),
+        pointBorderWidth: g.points.map((_, i) => (record[i] ? 2 : 0)),
+        pointRadius: g.points.map((p, i) => (p.pain || record[i] ? 5 : 3)),
       }],
     },
     options: {
@@ -117,7 +123,7 @@ export function aerobicPumpChart(ws: CompletedWorkout[], target: number): ChartC
       labels: r.map((x) => dm(x.date)),
       datasets: [
         { label: 'Śr. pompowanie po drogach', data: r.map((x) => x.avgPump), borderColor: c.accent, backgroundColor: r.map((x) => (x.avgPump! > target ? c.warn : c.accent)), pointBackgroundColor: r.map((x) => (x.avgPump! > target ? c.warn : c.accent)), tension: 0 },
-        { label: `Cel: maks. ${target}/10`, data: r.map(() => target), borderColor: c.faint, borderDash: [3, 4], pointRadius: 0, borderWidth: 1.5 },
+        { label: `Cel: maks. ${target}/10`, data: r.map(() => target), borderColor: c.info, borderDash: [4, 4], pointRadius: 0, borderWidth: 1.25 },
       ],
     },
     options: { plugins: lineLegend, scales: { y: { min: 0, max: 10 }, x: { grid: { display: false } } } },
@@ -138,7 +144,7 @@ export function hardestChart(ws: CompletedWorkout[]): ChartConfiguration | null 
       labels: w.map((x) => dm(x.weekStart)),
       datasets: [
         { label: 'Najlepsza dotąd', data: running, borderColor: c.accent, backgroundColor: c.accent, stepped: 'before', pointRadius: 0 },
-        { label: 'Najtrudniejsza w tygodniu', data: idx, borderColor: c.info, backgroundColor: c.info, showLine: false, pointRadius: 4 },
+        { label: 'Najtrudniejsza w tygodniu', data: idx, borderColor: c.info, backgroundColor: c.info, showLine: false, pointRadius: 4, pointBackgroundColor: idx.map((v, i) => (i > 0 && v > running[i - 1] ? c.record : c.info)), pointBorderColor: idx.map((v, i) => (i > 0 && v > running[i - 1] ? c.accent : c.info)), pointBorderWidth: idx.map((v, i) => (i > 0 && v > running[i - 1] ? 2 : 0)) },
       ],
     },
     options: {

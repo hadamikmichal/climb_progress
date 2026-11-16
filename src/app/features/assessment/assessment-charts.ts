@@ -10,9 +10,9 @@ const css = (n: string, f: string) => (typeof document !== 'undefined' ? getComp
 export function palette() {
   resolvedTheme(); // zależność: zmiana motywu przelicza wykresy
   return {
-    // ograniczona paleta: grafit = bieżący wynik, kamień = odniesienie, pomarańcz = ryzyko, oliwka = drugi parametr
-    accent: css('--chart-1', '#181c19'), ok: css('--chart-4', '#263019'), bad: css('--chart-3', '#d96c45'), warn: css('--chart-3', '#d96c45'),
-    info: css('--chart-2', '#777c74'), faint: css('--chart-faint', '#c3c4bb'), muted: css('--chart-2', '#777c74'),
+    // ograniczona paleta: Forest = bieżący wynik, kamień/granit = odniesienie i cele, Scree = ryzyko, Lime = rekord
+    accent: css('--chart-1', '#426b50'), ok: css('--chart-4', '#222923'), bad: css('--chart-3', '#c77b4c'), warn: css('--chart-3', '#c77b4c'),
+    info: css('--chart-2', '#747d75'), faint: css('--chart-faint', '#c9ccc2'), muted: css('--chart-2', '#747d75'), record: css('--chart-record', '#d7ef76'),
   };
 }
 
@@ -35,7 +35,7 @@ export function fingerTrendChart(xs: Assessment[]): ChartConfiguration | null {
       labels: rows.map((x) => short(x.a)),
       datasets: [
         { type: 'line', label: 'Masa ciała (kg)', data: rows.map((x) => x.r.bodyMassKg), borderColor: c.info, backgroundColor: c.info, borderDash: [4, 4], pointRadius: 3, order: 0 },
-        { type: 'bar', label: 'Obciążenie całkowite (kg)', data: rows.map((x) => x.r.totalLoadKg), backgroundColor: c.accent, maxBarThickness: 56, order: 1 },
+        { type: 'bar', label: 'Obciążenie całkowite (kg)', data: rows.map((x) => x.r.totalLoadKg), backgroundColor: c.accent, order: 1 },
       ],
     },
     options: {
@@ -55,7 +55,7 @@ export function pullUpTrendChart(xs: Assessment[]): ChartConfiguration | null {
   const c = palette();
   return {
     type: 'bar',
-    data: { labels: rows.map((x) => short(x.a)), datasets: [{ label: 'Dodatkowe obciążenie (kg)', data: rows.map((x) => x.r.addedWeightKg), backgroundColor: c.warn, borderRadius: 6 }] },
+    data: { labels: rows.map((x) => short(x.a)), datasets: [{ label: 'Dodatkowe obciążenie (kg)', data: rows.map((x) => x.r.addedWeightKg), backgroundColor: c.accent }] },
     options: { plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true } } },
   };
 }
@@ -69,7 +69,7 @@ export function coreTrendChart(xs: Assessment[]): ChartConfiguration | null {
     type: 'bar',
     data: {
       labels: rows.map((x) => `${short(x.a)} · ${CORE_LABELS[x.r.exercise!].split(' (')[0]}`),
-      datasets: [{ label: 'Czas utrzymania (s)', data: rows.map((x) => x.r.holdSeconds), backgroundColor: c.ok, borderRadius: 6 }],
+      datasets: [{ label: 'Czas utrzymania (s)', data: rows.map((x) => x.r.holdSeconds), backgroundColor: c.accent }],
     },
     options: { plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true } } },
   };
@@ -82,7 +82,7 @@ export function deadHangTrendChart(xs: Assessment[]): ChartConfiguration | null 
   const c = palette();
   return {
     type: 'bar',
-    data: { labels: rows.map((x) => short(x.a)), datasets: [{ label: 'Czas (s)', data: rows.map((x) => x.r.holdSeconds), backgroundColor: c.info, borderRadius: 6 }] },
+    data: { labels: rows.map((x) => short(x.a)), datasets: [{ label: 'Czas (s)', data: rows.map((x) => x.r.holdSeconds), backgroundColor: c.accent }] },
     options: { plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true, suggestedMax: 360 } } },
   };
 }
@@ -91,8 +91,8 @@ export function deadHangTrendChart(xs: Assessment[]): ChartConfiguration | null 
 
 const seriesColors = () => {
   const c = palette();
-  // starsze testy jaśniej, bieżący grafitem; pomarańcz zarezerwowany dla ryzyka
-  return [c.ok, c.faint, c.info, c.accent];
+  // starsze testy jaśniej (kamień → granit → grafit), bieżący w Forest; Scree zarezerwowany dla ryzyka
+  return [c.faint, c.info, c.ok, c.accent];
 };
 
 /** 5. Route Timing – czasy przejść kolejnych prób */
@@ -107,7 +107,7 @@ export function routeTimingChart(xs: Assessment[]): ChartConfiguration | null {
       labels: Array.from({ length: n }, (_, i) => `Droga ${i + 1}`),
       datasets: rows.map((a, i) => {
         const t = climbingResults(a.climbing!).time;
-        return { label: short(a), data: Array.from({ length: n }, (_, k) => t.times[k] ?? null), backgroundColor: cols[i], borderRadius: 4 };
+        return { label: short(a), data: Array.from({ length: n }, (_, k) => t.times[k] ?? null), backgroundColor: cols[i] };
       }),
     },
     options: { plugins: { legend: { display: rows.length > 1 } }, scales: { y: { beginAtZero: true, title: { display: true, text: 's' } } } },
@@ -179,8 +179,8 @@ export function baselineVsRetestChart(a: Assessment, b: Assessment): ChartConfig
     data: {
       labels,
       datasets: [
-        { label: `${KIND_LABELS[a.kind]}`, data: va, backgroundColor: c.faint, borderRadius: 4 },
-        { label: `${KIND_LABELS[b.kind]}`, data: vb, backgroundColor: c.accent, borderRadius: 4 },
+        { label: `${KIND_LABELS[a.kind]}`, data: va, backgroundColor: c.faint },
+        { label: `${KIND_LABELS[b.kind]}`, data: vb, backgroundColor: c.accent },
       ],
     },
     options: { scales: { y: { min: 0, max: 10 } } },

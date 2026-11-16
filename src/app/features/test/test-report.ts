@@ -151,7 +151,8 @@ export class TestReportPage {
     if (!t) return null;
     const list: TestResult[] = [...this.series(), t];
     resolvedTheme();
-    const palette = [css('--faint', '#6b747d'), css('--info', '#7cb4f5'), css('--warn', '#f2b84b'), css('--accent', '#d6f54a')];
+    // starsze testy w odcieniach kamienia/granitu, bieżący w Forest – bez tęczy
+    const palette = [css('--chart-faint', '#c9ccc2'), css('--chart-2', '#747d75'), css('--chart-4', '#222923'), css('--chart-1', '#426b50')];
     return {
       type: 'line',
       data: {
