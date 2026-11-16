@@ -17,11 +17,11 @@ import { Component, computed, input, model } from '@angular/core';
   styles: `
     .scale { display: grid; grid-template-columns: repeat(auto-fit, minmax(40px, 1fr)); gap: 4px; }
     button { min-height: 48px; border-radius: 6px; border: 1px solid var(--border); background: var(--surface);
-      color: var(--text); font: 500 1rem var(--font-mono); cursor: pointer; font-variant-numeric: tabular-nums; padding: 0;
+      color: var(--text); font: 500 1rem var(--font-num); cursor: pointer; font-variant-numeric: tabular-nums; padding: 0;
       transition: background 120ms var(--ease), color 120ms var(--ease); }
     button.hot { color: var(--warn); }
     button.on { background: var(--select-bg); color: var(--select-ink); border-color: var(--select-bg); animation: pop 180ms var(--ease); }
-    .ends { display: flex; justify-content: space-between; font: 0.7rem var(--font-mono); text-transform: uppercase; letter-spacing: 0.06em; color: var(--faint); margin-top: 6px; }
+    .ends { display: flex; justify-content: space-between; font: 0.7rem var(--font-num); text-transform: uppercase; letter-spacing: 0.06em; color: var(--faint); margin-top: 6px; }
   `,
 })
 export class Scale {

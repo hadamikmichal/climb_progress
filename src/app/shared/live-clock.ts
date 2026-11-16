@@ -12,7 +12,7 @@ import { beep } from './beep';
   template: `<span class="clock num" [class.over]="over()">{{ text() }}</span>`,
   styles: `
     :host { display: block; text-align: center; }
-    .clock { font: 500 var(--clock-size, 3.2rem)/1 var(--font-mono); letter-spacing: -0.05em; font-variant-numeric: tabular-nums; }
+    .clock { font: 500 var(--clock-size, 3.2rem)/1 var(--font-num); letter-spacing: -0.05em; font-variant-numeric: tabular-nums; }
     .over { color: var(--accent-strong); }
   `,
 })

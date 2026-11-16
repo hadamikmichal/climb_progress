@@ -87,12 +87,12 @@ const LABELS: Record<FigureKind, string> = {
   styles: `
     :host { display: block; color: var(--text); }
     .fig { margin: 0; padding: 10px 12px 8px; border: 1px solid var(--border); border-radius: var(--radius); display: flex; flex-direction: column; gap: 4px; }
-    .lbl { font-family: var(--font-mono); font-size: 0.62rem; letter-spacing: 0.1em; color: var(--muted); }
+    .lbl { font-family: var(--font-num); font-size: 0.62rem; letter-spacing: 0.1em; color: var(--muted); }
     svg { width: 100%; max-width: 240px; height: auto; display: block; margin: 0 auto; }
-    svg text { font-family: var(--font-mono); font-size: 7.5px; letter-spacing: 0.04em; fill: var(--muted); stroke: none; }
+    svg text { font-family: var(--font-num); font-size: 7.5px; letter-spacing: 0.04em; fill: var(--muted); stroke: none; }
     .acc { fill: var(--accent); stroke: var(--accent-strong); }
     .acc-stroke { stroke: var(--accent-strong); }
-    .cap { font-family: var(--font-mono); font-size: 0.68rem; color: var(--muted); }
+    .cap { font-family: var(--font-num); font-size: 0.72rem; color: var(--muted); }
   `,
 })
 export class TestFigure {

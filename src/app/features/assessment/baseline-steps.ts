@@ -72,7 +72,7 @@ const pad = (n: number) => String(n).padStart(2, '0');
     }
     .bs-bar button:disabled { cursor: default; }
     .seg { display: block; height: 4px; border-radius: 1px; background: var(--surface-3); transition: background 300ms var(--ease); }
-    .n { font-size: 0.66rem; letter-spacing: 0.04em; text-align: left; }
+    .n { font-size: 0.72rem; letter-spacing: 0.04em; text-align: left; }
     .done .seg { background: var(--muted); }
     .done { color: var(--muted); }
     .on .seg { background: var(--accent-strong); }

@@ -1,53 +1,67 @@
 @use 'sass:color';
 
-// ClimbProgress – Design Tokens („Climbing Performance Journal”)
+// ClimbProgress – Design Tokens · CHALK / FOREST / GRAPHITE
 // Jedyne źródło prawdy dla kolorów, typografii, odstępów i promieni.
 // SCSS-owe zmienne służą do obliczeń w czasie kompilacji; komponenty używają custom properties (--*),
-// dzięki czemu Active Workout Mode może przełączyć cały kontekst kolorystyczny jedną klasą.
+// dzięki czemu motyw ciemny i Active Workout Mode przełączają cały kontekst jedną klasą/atrybutem.
+//
+// Rozkład koloru: ~80% neutralne (Chalk, White, Stone), ~15% Graphite + Forest, ≤5% akcenty.
+// Forest = działanie i stan aktywny. Chalk Lime = wyłącznie rekordy, kamienie milowe, timer na ścianie.
+// Scree = ostrzeżenie / ryzyko. Kolor zawsze coś znaczy.
 
-// ---------- Paleta ----------
-$color-background: #f1f0e9; // Chalk – tło aplikacji
-$color-surface: #fbfaf6; // Limestone – powierzchnie robocze
-$color-foreground: #181c19; // Graphite – tekst i kontrast
-$color-muted: #777c74; // Stone Grey – informacje drugorzędne
-$color-border: #d5d5cc; // Stone Grey – separatory
-$color-accent: #d7ff3f; // Signal Lime – główne działania
-$color-accent-dark: #263019; // ciemna oliwka – tekst akcentowany na jasnym tle
-$color-warning: #d96c45; // Burnt Orange – ostrzeżenia, zmęczenie, ryzyko
+// ---------- Paleta bazowa ----------
+$chalk: #f3f2ed; // tło aplikacji
+$white: #ffffff; // karty i powierzchnie
+$graphite: #222923; // tekst, ciemne elementy
+$forest: #426b50; // akcje główne, stany aktywne
+$forest-hover: #34563f;
+$lime: #d7ef76; // Chalk Lime – rekordy i wyróżnienia
+$scree: #c77b4c; // akcent drugorzędny, ostrzeżenia (wypełnienia, linie)
+$stone: #e2e4dc; // obramowania, separatory
+$granite: #747d75; // etykiety niekrytyczne, ikony, elementy nieaktywne
 
-// pochodne
-$color-surface-sunk: #e8e7df; // wgłębienia (pola wyboru, tory wykresów)
-$color-faint: #9a9e95;
-$color-ok: #4a6a1c;
-$color-risk: #b4472a;
+// pochodne dostępne (WCAG AA dla tekstu < 18 px)
+$granite-text: #5f6760; // 5.2:1 na Chalk, 5.8:1 na White
+$scree-text: #9a5530; // 5.0:1 na Chalk
+$error: #b54b45; // 4.6:1 na Chalk
+$chalk-sunk: #ebeae3; // wgłębienia: tory pasków, pola wyboru
+
+// ciemny kontekst (grafit)
+$night-bg: #1a1f1b;
+$night-surface: #222923;
+$night-raised: #2a322b;
+$night-border: #343d36;
+$night-muted: #a3aba3; // 7.1:1
+$sage: #8fbf9c; // Forest rozjaśniony do pracy na grafitowym tle
 
 // ---------- Typografia ----------
 $font-heading: 'Archivo', 'Helvetica Neue', Arial, sans-serif;
-$font-body: 'DM Sans', system-ui, -apple-system, 'Segoe UI', sans-serif;
-$font-mono: 'IBM Plex Mono', ui-monospace, 'SFMono-Regular', Menlo, monospace;
+$font-body: 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
+// liczby: Inter z cyframi tabelarycznymi (font-variant-numeric ustawiane w .num/.metric)
+$font-num: 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
 
-// skala (mobile → desktop przez clamp)
-$type-display: clamp(2.75rem, 7vw + 1rem, 4.5rem);
-$type-h1: clamp(1.75rem, 3vw + 1rem, 2.5rem);
+// skala (mobile → desktop przez clamp) – nagłówki zdecydowane, ale nie krzykliwe
+$type-display: clamp(2rem, 3.2vw + 1rem, 3rem);
+$type-h1: clamp(1.625rem, 1.6vw + 1rem, 2.125rem);
 $type-h2: 1.25rem;
-$type-h3: 1rem;
-$type-body: 1rem;
-$type-small: 0.875rem;
+$type-h3: 1.0625rem;
+$type-body: 0.9375rem;
+$type-small: 0.8125rem;
 $type-caption: 0.75rem;
 
 // ---------- Odstępy (4 · 8 · 12 · 16 · 24 · 32 · 48 · 64 · 80) ----------
 $space: (1: 4px, 2: 8px, 3: 12px, 4: 16px, 5: 24px, 6: 32px, 7: 48px, 8: 64px, 9: 80px);
 
-// ---------- Promienie ----------
-$radius-field: 6px;
+// ---------- Promienie (umiarkowane: 6–12 px) ----------
+$radius-field: 8px;
 $radius-button: 8px;
 $radius-card: 10px;
-$radius-container: 14px;
+$radius-container: 12px;
 
 // ---------- Ruch ----------
 $ease: cubic-bezier(0.2, 0, 0, 1);
 $dur-fast: 120ms;
-$dur: 200ms;
+$dur: 180ms;
 
 // ---------- Breakpointy ----------
 $bp-tablet: 768px;
@@ -59,72 +73,99 @@ $bp-wide: 1440px;
 
 /// Kontekst jasny (domyślny – plan, analiza, historia)
 @mixin theme-light {
-  --bg: #{$color-background};
-  --surface: #{$color-surface};
-  --surface-2: #{$color-surface-sunk};
-  --surface-3: #{color.adjust($color-surface-sunk, $lightness: -4%)};
-  --border: #{$color-border};
-  --border-strong: #{$color-foreground};
-  --text: #{$color-foreground};
-  --muted: #{$color-muted};
-  --faint: #{$color-faint};
-  --accent: #{$color-accent};
-  --accent-ink: #{$color-foreground};
-  --accent-strong: #{$color-accent-dark};
-  --accent-soft: #{color.change($color-accent, $alpha: 0.35)};
-  --ok: #{$color-ok};
-  --warn: #{$color-warning};
-  --bad: #{$color-risk};
-  --info: #{$color-muted};
-  --chart-1: #{$color-foreground};
-  --chart-2: #{$color-muted};
-  --chart-3: #{$color-warning};
-  --chart-4: #{$color-accent-dark};
-  --chart-fill: #{$color-accent};
-  --select-bg: #{$color-foreground};
-  --select-ink: #{$color-background};
-  --chart-grid: rgba(24, 28, 25, 0.08);
-  --chart-faint: #c3c4bb;
-  --tooltip-bg: #{$color-foreground};
-  --tooltip-ink: #{$color-background};
-  --inverse-accent: #{$color-accent};
-  --overlay: rgba(24, 28, 25, 0.55);
+  --bg: #{$chalk};
+  --surface: #{$white};
+  --surface-2: #{$chalk-sunk};
+  --surface-3: #{$stone};
+  --border: #{$stone};
+  --border-strong: #c3c7bc; // linia sekcji – mocniejsza od Stone, lżejsza od grafitu
+  --text: #{$graphite};
+  --muted: #{$granite-text};
+  --faint: #{$granite};
+  // działanie / stan aktywny
+  --accent: #{$forest};
+  --accent-hover: #{$forest-hover};
+  --accent-ink: #{$white};
+  --accent-strong: #{$forest}; // tekst „lepiej”, wynik pozytywny
+  --accent-soft: #{color.change($forest, $alpha: 0.1)};
+  // rekord / kamień milowy
+  --highlight: #{$lime};
+  --highlight-ink: #{$graphite};
+  --ok: #{$forest};
+  --warn: #{$scree-text};
+  --warn-line: #{$scree};
+  --bad: #{$error};
+  --info: #{$granite-text};
+  // wykresy: Forest = bieżące dane, kamień = odniesienie, Scree = ryzyko, Lime = rekord
+  --chart-1: #{$forest};
+  --chart-2: #{$granite};
+  --chart-3: #{$scree};
+  --chart-4: #{$graphite};
+  --chart-fill: #{$forest};
+  --chart-record: #{$lime}; // zawsze z obwódką Forest – czytelne na bieli
+  --chart-grid: rgba(34, 41, 35, 0.07);
+  --chart-faint: #c9ccc2;
+  --select-bg: #{$graphite};
+  --select-ink: #{$white};
+  --tooltip-bg: #{$graphite};
+  --tooltip-ink: #{$chalk};
+  --inverse-accent: #{$lime};
+  --overlay: rgba(34, 41, 35, 0.48);
+  --focus: #{$forest};
   color-scheme: light;
 }
 
-/// Kontekst ciemny – motyw ciemny całej aplikacji oraz Active Workout Mode
-/// (grafitowe tło, jasny tekst, Signal Lime dla timera i CTA)
+/// Kontekst ciemny – motyw ciemny całej aplikacji
 @mixin theme-dark {
-  --bg: #{$color-foreground};
-  --surface: #{color.adjust($color-foreground, $lightness: 4%)};
-  --surface-2: #{color.adjust($color-foreground, $lightness: 8%)};
-  --surface-3: #{color.adjust($color-foreground, $lightness: 13%)};
-  --border: #{color.adjust($color-foreground, $lightness: 16%)};
-  --border-strong: #{$color-background};
-  --text: #{$color-background};
-  --muted: #{color.adjust($color-muted, $lightness: 12%)};
-  --faint: #{$color-muted};
-  --accent: #{$color-accent};
-  --accent-ink: #{$color-foreground};
-  --accent-strong: #{$color-accent};
-  --accent-soft: #{color.change($color-accent, $alpha: 0.14)};
-  --ok: #{$color-accent};
-  --warn: #{color.adjust($color-warning, $lightness: 6%)};
-  --bad: #{color.adjust($color-warning, $lightness: 6%)};
-  --info: #{color.adjust($color-muted, $lightness: 12%)};
-  --chart-1: #{$color-background};
-  --chart-2: #{color.adjust($color-muted, $lightness: 8%)};
-  --chart-3: #{$color-warning};
-  --chart-4: #{$color-accent};
-  --chart-fill: #{$color-accent};
-  --select-bg: #{$color-accent};
-  --select-ink: #{$color-foreground};
-  --chart-grid: rgba(241, 240, 233, 0.1);
-  --chart-faint: #{color.adjust($color-foreground, $lightness: 22%)};
-  --tooltip-bg: #{$color-background};
-  --tooltip-ink: #{$color-foreground};
-  --inverse-accent: #{$color-accent-dark};
-  --overlay: rgba(0, 0, 0, 0.65);
-  --brand-outline: #{color.adjust($color-foreground, $lightness: 24%)};
+  --bg: #{$night-bg};
+  --surface: #{$night-surface};
+  --surface-2: #{$night-raised};
+  --surface-3: #{$night-border};
+  --border: #{$night-border};
+  --border-strong: #{color.adjust($night-border, $lightness: 22%)};
+  --text: #{$chalk};
+  --muted: #{$night-muted};
+  --faint: #{color.adjust($granite, $lightness: 6%)};
+  --accent: #{$sage};
+  --accent-hover: #{color.adjust($sage, $lightness: 6%)};
+  --accent-ink: #{$night-bg};
+  --accent-strong: #{$sage};
+  --accent-soft: #{color.change($sage, $alpha: 0.14)};
+  --highlight: #{$lime};
+  --highlight-ink: #{$graphite};
+  --ok: #{$sage};
+  --warn: #{color.adjust($scree, $lightness: 12%)};
+  --warn-line: #{$scree};
+  --bad: #e2897f;
+  --info: #{$night-muted};
+  --chart-1: #{$sage};
+  --chart-2: #{color.adjust($granite, $lightness: 8%)};
+  --chart-3: #{$scree};
+  --chart-4: #{$chalk};
+  --chart-fill: #{$sage};
+  --chart-record: #{$lime};
+  --chart-grid: rgba(243, 242, 237, 0.08);
+  --chart-faint: #{color.adjust($night-border, $lightness: 10%)};
+  --select-bg: #{$chalk};
+  --select-ink: #{$night-bg};
+  --tooltip-bg: #{$chalk};
+  --tooltip-ink: #{$graphite};
+  --inverse-accent: #{$forest};
+  --overlay: rgba(0, 0, 0, 0.6);
+  --focus: #{$sage};
+  --brand-outline: #{color.adjust($night-border, $lightness: 8%)};
   color-scheme: dark;
+}
+
+/// Active Workout Mode – zawsze grafit; Chalk Lime dla timera i CTA (czytelne z daleka, na ścianie)
+@mixin theme-workout {
+  @include theme-dark;
+  --accent: #{$lime};
+  --accent-hover: #{color.adjust($lime, $lightness: 5%)};
+  --accent-ink: #{$graphite};
+  --accent-strong: #{$lime};
+  --accent-soft: #{color.change($lime, $alpha: 0.14)};
+  --select-bg: #{$lime};
+  --select-ink: #{$graphite};
+  --focus: #{$lime};
 }

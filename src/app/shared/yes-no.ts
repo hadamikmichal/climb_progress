@@ -13,7 +13,7 @@ import { Component, input, model } from '@angular/core';
     button { min-height: 48px; border-radius: 6px; border: 1px solid var(--border); background: var(--surface); color: var(--text);
       font: 600 0.95rem var(--font-heading); cursor: pointer; transition: background 120ms var(--ease); }
     button.on { background: var(--select-bg); color: var(--select-ink); border-color: var(--select-bg); }
-    button.on.warn { background: var(--warn); border-color: var(--warn); color: #181c19; }
+    button.on.warn { background: var(--warn-line); border-color: var(--warn-line); color: #222923; }
   `,
 })
 export class YesNo {

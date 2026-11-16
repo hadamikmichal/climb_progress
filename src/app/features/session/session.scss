@@ -46,7 +46,7 @@
 
 /* zegar fazy */
 .clock-block { display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 8px 0 4px; transition: color 200ms var(--ease); }
-.phase-label { font-family: var(--font-mono); font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.14em; color: var(--muted); }
+.phase-label { font-family: var(--font-num); font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.14em; color: var(--muted); }
 .clock { font-size: clamp(5rem, 28vw, 8rem); font-weight: 500; letter-spacing: -0.07em; line-height: 0.95; }
 .clock-block.work .clock, .clock-block.work .phase-label { color: var(--accent); }
 .clock-block.rest .clock { color: var(--text); }
@@ -60,7 +60,7 @@
 .sets { display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px; }
 .set-btn {
   min-height: 52px; border-radius: 8px; border: 1px solid var(--border); background: transparent; color: var(--muted);
-  font: 500 1.1rem var(--font-mono); cursor: pointer;
+  font: 500 1.1rem var(--font-num); cursor: pointer;
 }
 .set-btn.on { background: var(--surface-3); color: var(--accent); border-color: var(--surface-3); animation: pop 200ms var(--ease); }
 
@@ -79,13 +79,13 @@
 .chips { display: flex; flex-wrap: wrap; gap: 6px; }
 .chip {
   min-height: 48px; padding: 0 16px; border-radius: 8px; border: 1px solid var(--border); background: transparent; color: var(--text);
-  font: 500 0.95rem var(--font-mono); cursor: pointer;
+  font: 500 0.95rem var(--font-num); cursor: pointer;
 }
 .chip.on { background: var(--select-bg); color: var(--select-ink); border-color: var(--select-bg); }
 
 /* rozwijane szczegóły */
 .more { border-top: 1px solid var(--border); padding-top: 4px; }
-.more summary { min-height: 48px; display: flex; align-items: center; cursor: pointer; font-family: var(--font-mono); font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); }
+.more summary { min-height: 48px; display: flex; align-items: center; cursor: pointer; font-family: var(--font-num); font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); }
 .more[open] { display: flex; flex-direction: column; gap: 8px; padding-bottom: 8px; }
 .route-row { display: grid; grid-template-columns: 28px minmax(0, 1fr) 48px 48px 40px; align-items: center; gap: 6px; padding: 4px 0; border-bottom: 1px solid var(--border); }
 .route-row:has(.res) { grid-template-columns: 28px minmax(0, 1fr) auto 48px; }
@@ -94,7 +94,7 @@
 .pump, .res { color: var(--muted); font-size: 0.85rem; text-align: right; }
 .tick { min-height: 44px; border-radius: 8px; border: 1px solid var(--border); background: transparent; color: var(--muted); cursor: pointer; display: grid; place-items: center; --icon: 20px; }
 .tick.on { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
-.tick.bad.on { background: var(--warn); border-color: var(--warn); color: #181c19; }
+.tick.bad.on { background: var(--warn); border-color: var(--warn); color: #222923; }
 
 /* dok z głównym przyciskiem – stały dostęp, obsługa kciukiem */
 .dock {

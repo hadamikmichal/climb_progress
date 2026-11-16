@@ -24,7 +24,7 @@ import { Component, computed, DestroyRef, inject, input, signal } from '@angular
   `,
   styles: `
     .timer { display: flex; flex-direction: column; gap: 8px; padding: 14px 16px; border-radius: var(--radius); border: 1px solid var(--border); background: var(--surface); }
-    .time { font: 500 2.6rem/1.05 var(--font-mono); text-align: center; letter-spacing: -0.04em; font-variant-numeric: tabular-nums; }
+    .time { font: 500 2.6rem/1.05 var(--font-num); text-align: center; letter-spacing: -0.04em; font-variant-numeric: tabular-nums; }
     .running { border-color: var(--text); }
     .running .time { color: var(--accent-strong); }
     .finished .time { color: var(--accent-strong); }

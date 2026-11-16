@@ -37,9 +37,9 @@ import { DatePlPipe } from '../../shared/pipes';
     .theme-seg .t { font: 700 0.95rem var(--font-heading); }
     .theme-seg .d { font-size: 0.75rem; color: var(--muted); line-height: 1.3; }
     .swatch { width: 28px; height: 18px; border-radius: 4px; border: 1px solid var(--border); }
-    .swatch[data-swatch='light'] { background: #f1f0e9; }
-    .swatch[data-swatch='dark'] { background: #181c19; }
-    .swatch[data-swatch='auto'] { background: linear-gradient(135deg, #f1f0e9 50%, #181c19 50%); }
+    .swatch[data-swatch='light'] { background: #f3f2ed; }
+    .swatch[data-swatch='dark'] { background: #1a1f1b; }
+    .swatch[data-swatch='auto'] { background: linear-gradient(135deg, #f3f2ed 50%, #1a1f1b 50%); }
     .small-note { font-size: 0.82rem; }
   `,
 })

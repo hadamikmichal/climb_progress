@@ -71,7 +71,7 @@ import { DatePlPipe } from '../../shared/pipes';
     .qs > .kicker { padding: var(--s3) 0 var(--s2); }
     .q { display: grid; grid-template-columns: minmax(0, 1fr) 176px; align-items: center; gap: var(--s3); min-height: 60px; padding: 6px 0; border-top: 1px solid var(--border); font-weight: 500; }
     .verdict { display: flex; flex-direction: column; gap: 4px; padding: var(--s4); border: 1px solid var(--border-strong); border-radius: var(--radius); font-size: 0.9rem; }
-    .verdict strong { font: 800 1.4rem var(--font-heading); letter-spacing: -0.02em; }
+    .verdict strong { font: 700 1.4rem var(--font-heading); letter-spacing: -0.02em; }
     .verdict.go { box-shadow: inset 4px 0 0 var(--accent); }
     .verdict.easy, .verdict.rest { box-shadow: inset 4px 0 0 var(--warn); border-color: var(--warn); }
     .foot { position: sticky; bottom: calc(var(--nav-h) + env(safe-area-inset-bottom)); padding: var(--s3) 0; background: linear-gradient(to top, var(--bg) 70%, transparent); }
