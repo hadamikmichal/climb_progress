@@ -9,6 +9,10 @@ import { ThemeService } from './shared/theme';
 
 interface NavItem { path: string; label: string; icon: IconName; exact?: boolean }
 
+/** Kolor paska przeglądarki / PWA – zgodny z --color-background motywu */
+const NORDIC_FJORD = '#11191B';
+const NORDIC_SNOW = '#F0F3ED';
+
 @Component({
   selector: 'app-root',
   imports: [RouterOutlet, RouterLink, RouterLinkActive, Icon, BrandMark],
@@ -41,12 +45,12 @@ export class App {
   });
 
   constructor() {
-    // Tło całego dokumentu podąża za kontekstem (Active Workout Mode = grafit)
+    // Tło całego dokumentu podąża za kontekstem (Active Workout Mode = zawsze Nordic dark)
     effect(() => {
       const focus = this.focusMode();
       document.body.classList.toggle('mode-active', focus);
       const dark = focus || this.theme.isDark();
-      document.querySelector('meta[name="theme-color"]')?.setAttribute('content', dark ? '#181C19' : '#F1F0E9');
+      document.querySelector('meta[name="theme-color"]')?.setAttribute('content', dark ? NORDIC_FJORD : NORDIC_SNOW);
     });
   }
 

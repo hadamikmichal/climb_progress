@@ -15,8 +15,8 @@
   <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
   <link rel="manifest" href="manifest.webmanifest">
   <script>
-    // motyw przed startem aplikacji – bez mignięcia jasnego tła w trybie ciemnym
-    try { var t = localStorage.getItem('climbprogress.theme'); document.documentElement.dataset.theme = (t === 'dark' || t === 'auto') ? t : 'light'; } catch (e) {}
+    // motyw przed startem aplikacji – Nordic Alpine jest domyślnie ciemny; bez mignięcia jasnego tła
+    (function () { var t = 'dark'; try { var s = localStorage.getItem('climbprogress.theme'); if (s === 'light' || s === 'auto') t = s; } catch (e) {} document.documentElement.dataset.theme = t; })();
   </script>
 </head>
 <body>

@@ -18,11 +18,11 @@ import { DatePlPipe } from '../../shared/pipes';
   styles: `
     .pf-sum { font-size: 0.85rem; }
     .pf-sec { display: flex; flex-direction: column; gap: var(--s4); }
-    .pf-head { display: flex; align-items: baseline; gap: var(--s3); padding-top: var(--s2); border-top: 1px solid var(--border-strong); }
-    .pf-head.sub { border-top-color: var(--border); margin-top: var(--s3); }
-    .pf-head .num { font-size: 0.75rem; color: var(--muted); }
+    .pf-head { display: flex; align-items: baseline; gap: var(--s3); padding-top: var(--s2); border-top: 1px solid var(--color-border-strong); }
+    .pf-head.sub { border-top-color: var(--color-border); margin-top: var(--s3); }
+    .pf-head .num { font-size: 0.75rem; color: var(--color-text-secondary); }
     .pf-head h2 { flex: 1; }
-    .pf-h4 { margin-top: var(--s3); padding-bottom: 6px; border-bottom: 1px solid var(--border); }
+    .pf-h4 { margin-top: var(--s3); padding-bottom: 6px; border-bottom: 1px solid var(--color-border); }
     .pf-save { align-self: flex-start; }
     .cyc { display: flex; flex-direction: column; gap: 2px; }
     .cyc small { font-size: 0.78rem; }
@@ -30,16 +30,17 @@ import { DatePlPipe } from '../../shared/pipes';
     .theme-seg { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
     .theme-seg button {
       display: flex; flex-direction: column; align-items: flex-start; gap: 6px; min-height: 96px; padding: 12px;
-      border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--surface); color: var(--text);
+      border: 1px solid var(--color-border); border-radius: var(--radius-sm); background: var(--color-surface); color: var(--color-text-primary);
       font: inherit; text-align: left; cursor: pointer; transition: border-color var(--dur) var(--ease);
     }
-    .theme-seg button.on { border-color: var(--text); box-shadow: inset 0 -3px 0 var(--accent); }
+    .theme-seg button:hover { border-color: var(--color-border-strong); }
+    .theme-seg button.on { border-color: var(--color-primary); background: var(--color-surface-elevated); box-shadow: inset 0 -2px 0 var(--color-primary); }
     .theme-seg .t { font: 700 0.95rem var(--font-heading); }
-    .theme-seg .d { font-size: 0.75rem; color: var(--muted); line-height: 1.3; }
-    .swatch { width: 28px; height: 18px; border-radius: 4px; border: 1px solid var(--border); }
-    .swatch[data-swatch='light'] { background: #f1f0e9; }
-    .swatch[data-swatch='dark'] { background: #181c19; }
-    .swatch[data-swatch='auto'] { background: linear-gradient(135deg, #f1f0e9 50%, #181c19 50%); }
+    .theme-seg .d { font-size: 0.75rem; color: var(--color-text-secondary); line-height: 1.3; }
+    .swatch { width: 28px; height: 18px; border-radius: 4px; border: 1px solid var(--color-border); }
+    .swatch[data-swatch='light'] { background: var(--palette-snow); }
+    .swatch[data-swatch='dark'] { background: var(--palette-fjord); box-shadow: inset 0 -4px 0 var(--palette-moss); }
+    .swatch[data-swatch='auto'] { background: linear-gradient(135deg, var(--palette-fjord) 50%, var(--palette-snow) 50%); }
     .small-note { font-size: 0.82rem; }
   `,
 })
@@ -58,8 +59,8 @@ export class ProfilePage {
   protected readonly params = signal<TrainingParams | null>(this.store.cycle() ? structuredClone(this.store.cycle()!.params) : null);
   protected readonly theme = inject(ThemeService);
   protected readonly themeOptions: { key: ThemePref; label: string; desc: string }[] = [
-    { key: 'light', label: 'Jasny', desc: 'Kreda i grafit – domyślny' },
-    { key: 'dark', label: 'Ciemny', desc: 'Grafitowe tło, mniej światła' },
+    { key: 'dark', label: 'Ciemny', desc: 'Nordic Alpine – fiord i mech, domyślny' },
+    { key: 'light', label: 'Jasny', desc: 'Śnieg i fiord – na mocne światło' },
     { key: 'auto', label: 'Auto', desc: 'Zgodnie z ustawieniem systemu' },
   ];
   protected readonly msg = signal<{ kind: 'ok' | 'bad' | 'info'; text: string } | null>(null);
