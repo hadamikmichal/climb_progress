@@ -27,7 +27,7 @@
       <app-test-figure kind="route" />
       <ol class="sequence">
         <li><span class="num">a</span>Rozgrzewka 15–20 min</li>
-        <li><span class="num">b</span>{{ cs.plannedAttempts }} próby na tej samej drodze 6a (~13 m)</li>
+        <li><span class="num">b</span>{{ cs.plannedAttempts }} próby na tej samej drodze {{ cs.route.frenchGrade }} (~{{ cs.route.heightMeters }} m)</li>
         <li><span class="num">c</span>Czas i pompowanie po każdej próbie</li>
         <li><span class="num">d</span>Recovery Curve 0 · 1 · 2 · 3 min</li>
       </ol>
@@ -60,7 +60,10 @@
           <button class="btn sm" type="button" (click)="useReferenceRoute()">Przywróć tę samą drogę</button></div>
       }
     } @else {
-      <p class="instr">6a, ok. 13 m – znana i wcześniej ukończona, bez niebezpiecznych ruchów, najlepiej o zróżnicowanych chwytach. Przy kolejnych testach użyjesz tej samej drogi.</p>
+      <p class="instr">{{ targetGrade() ?? r.frenchGrade }}, ok. {{ r.heightMeters }} m – znana i wcześniej ukończona, bez niebezpiecznych ruchów, najlepiej o zróżnicowanych chwytach. Przy kolejnych testach użyjesz tej samej drogi.</p>
+    }
+    @if (calibrating()) {
+      <p class="note info">Sesja kalibracyjna: pierwsza droga ma być kontrolowana, ostatnia wyraźnym wyzwaniem (RPE ok. 7–8/10). Jeśli trudność okaże się źle dobrana, zmienimy ją w <strong>kolejnej</strong> sesji – nie rób dziś testów na innych trudnościach.</p>
     }
     <div class="grid-2 compact">
       <label class="field">Nazwa drogi<input [ngModel]="r.name" (ngModelChange)="setRoute('name', $event)" placeholder="np. Szara płyta" /></label>
@@ -82,7 +85,15 @@
     </div>
     <span class="eyebrow">Droga znana i wcześniej ukończona</span>
     <app-yes-no [value]="r.knownAndSent" (valueChange)="setRoute('knownAndSent', !!$event)" />
-    @if (r.frenchGrade !== '6a') { <p class="note warn">Protokół zakłada drogę 6a – inna trudność utrudni porównanie.</p> }
+    @if (targetGrade() && r.frenchGrade !== targetGrade()) {
+      <div class="note warn">
+        <p>{{ benchmarkLocked() ? 'Zablokowany protokół testu' : 'Kalibracja' }} zakłada drogę <strong>{{ targetGrade() }}</strong>. Zmiana trudności to zmiana protokołu – wynik będzie oznaczony jako mniej porównywalny.</p>
+        @if (benchmarkLocked()) {
+          <label class="field">Powód zmiany protokołu<input [ngModel]="cs.protocolChange?.reason ?? ''" (ngModelChange)="setProtocolReason($event)" placeholder="np. droga przekręcona na ścianie" /></label>
+        }
+        <button class="btn sm" type="button" (click)="setRoute('frenchGrade', targetGrade()!)">Przywróć {{ targetGrade() }}</button>
+      </div>
+    }
     <div class="step-foot">
       <button class="btn primary xl" type="button" (click)="goStep('test')" [disabled]="!routeOk()">Zapisz drogę · próby</button>
     </div>

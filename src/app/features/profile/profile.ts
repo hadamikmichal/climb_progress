@@ -1,10 +1,15 @@
 import { Component, computed, inject, signal } from '@angular/core';
+import { TitleCasePipe } from '@angular/common';
 import { ThemePref, ThemeService } from '../../shared/theme';
 import { RouterLink } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 import { AppStore } from '../../core/data/store';
-import { GripPosition, HangboardSetup, HoldType, TrainingParams, TrainingType, UserProfile, Weekday } from '../../core/models/models';
-import { GRADES } from '../../core/logic/grades';
+import {
+  ClimberIntake, ClimbingStylePref, GripPosition, HangboardSetup, HoldType, PeProtocol, PowerEnduranceParams, TrainingParams, TrainingType, UserProfile, Weekday,
+} from '../../core/models/models';
+import { FONT_GRADES, GRADES, shiftGrade } from '../../core/logic/grades';
+import { candidateTest, resolveIntake, STYLE_LABELS, TEST_LEVELS } from '../../core/logic/adaptive/calibration';
+import { configureProtocol, PE_PROTOCOLS, protocolOf } from '../../core/logic/adaptive/protocols';
 import { WEEKDAY_NAMES, toISODate } from '../../core/logic/dates';
 import { validateTrainingDays } from '../../core/logic/plan';
 import { GRIP_LABELS, HOLD_LABELS, TEMPLATES } from '../../core/logic/templates';
@@ -13,7 +18,7 @@ import { DatePlPipe } from '../../shared/pipes';
 
 @Component({
   selector: 'app-profile',
-  imports: [RouterLink, FormsModule, DatePlPipe],
+  imports: [RouterLink, FormsModule, DatePlPipe, TitleCasePipe],
   templateUrl: './profile.html',
   styles: `
     .pf-sum { font-size: 0.85rem; }
@@ -42,11 +47,18 @@ import { DatePlPipe } from '../../shared/pipes';
     .swatch[data-swatch='dark'] { background: var(--palette-fjord); box-shadow: inset 0 -4px 0 var(--palette-moss); }
     .swatch[data-swatch='auto'] { background: linear-gradient(135deg, var(--palette-fjord) 50%, var(--palette-snow) 50%); }
     .small-note { font-size: 0.82rem; }
+    .pf-cand { display: flex; flex-direction: column; gap: 4px; }
+    .pf-cand .eyebrow { margin-right: 6px; }
   `,
 })
 export class ProfilePage {
   protected readonly store = inject(AppStore);
   protected readonly grades = GRADES;
+  protected readonly fontGrades = FONT_GRADES;
+  protected readonly levels = TEST_LEVELS;
+  protected readonly styles = (Object.keys(STYLE_LABELS) as ClimbingStylePref[]).map((key) => ({ key, label: STYLE_LABELS[key] }));
+  protected readonly peProtocols = Object.values(PE_PROTOCOLS);
+  protected readonly peDef = (pe: PowerEnduranceParams) => PE_PROTOCOLS[protocolOf(pe)];
   protected readonly gripLabels = GRIP_LABELS;
   protected readonly holdLabels = HOLD_LABELS;
   protected readonly grips = Object.keys(GRIP_LABELS) as GripPosition[];
@@ -63,6 +75,9 @@ export class ProfilePage {
     { key: 'light', label: 'Jasny', desc: 'Śnieg i fiord – na mocne światło' },
     { key: 'auto', label: 'Auto', desc: 'Zgodnie z ustawieniem systemu' },
   ];
+  protected readonly intake = computed(() => resolveIntake(this.p()));
+  protected readonly candidate = computed(() => candidateTest(this.intake()));
+  protected readonly benchmark = computed(() => this.store.cycle()?.benchmark ?? null);
   protected readonly msg = signal<{ kind: 'ok' | 'bad' | 'info'; text: string } | null>(null);
   protected readonly busy = signal(false);
 
@@ -85,6 +100,21 @@ export class ProfilePage {
   protected readonly pp = (sec: keyof TrainingParams, k: string, v: unknown) => (n: TrainingParams) => {
     (n[sec] as unknown as Record<string, unknown>)[k] = v;
   };
+
+  protected setIntake<K extends keyof ClimberIntake>(k: K, v: ClimberIntake[K]) {
+    this.edit((p) => (p.intake = { ...resolveIntake(p), [k]: v }));
+  }
+
+  /** Zmiana protokołu C: domyślny kształt nowego protokołu, trudność zachowana (Boulder 4 × 4 – skala Font) */
+  protected setProtocol(id: PeProtocol) {
+    this.editParams((n) => {
+      const cur = n.powerEndurance;
+      const font = PE_PROTOCOLS[id].font;
+      const wasFont = PE_PROTOCOLS[protocolOf(cur)].font;
+      const grade = font === wasFont ? cur.grade : font ? (this.intake().boulderGrade ?? '6A') : shiftGrade(this.intake().repeatableGrade ?? '6a', -1);
+      n.powerEndurance = configureProtocol(id, grade, { gradeCap: cur.gradeCap });
+    });
+  }
 
   protected edit(fn: (p: UserProfile) => void) {
     const n = structuredClone(this.p());
@@ -127,7 +157,9 @@ export class ProfilePage {
       hardRoutes: { ...n.hardRoutes, maxAttempts: num(n.hardRoutes.maxAttempts, 6) },
       aerobic: { ...n.aerobic, routes: num(n.aerobic.routes, 4), restMin: num(n.aerobic.restMin, 3), targetMaxPump: num(n.aerobic.targetMaxPump, 4) },
       powerEndurance: { ...n.powerEndurance, sets: num(n.powerEndurance.sets, 2), routesPerSet: num(n.powerEndurance.routesPerSet, 3),
-        restBetweenRoutesMin: num(n.powerEndurance.restBetweenRoutesMin, 2), restBetweenSetsMin: num(n.powerEndurance.restBetweenSetsMin, 12) },
+        restBetweenRoutesMin: num(n.powerEndurance.restBetweenRoutesMin, 2), restBetweenSetsMin: num(n.powerEndurance.restBetweenSetsMin, 12),
+        ...(n.powerEndurance.workSec != null ? { workSec: num(n.powerEndurance.workSec, 120) } : {}),
+        ...(n.powerEndurance.movesPerProblem != null ? { movesPerProblem: num(n.powerEndurance.movesPerProblem, 8) } : {}) },
     };
     const changes = this.types
       .filter((t) => describeLevel(t, c.params) !== describeLevel(t, clean))

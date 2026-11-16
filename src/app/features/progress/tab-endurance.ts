@@ -26,7 +26,7 @@ interface TestRow {
   avgRpe: number | null;
 }
 
-/** Progres › Wytrzymałość: objętość, powtarzalność, testy 3 × 6a / 4 × 6a, czasy przejść, RPE */
+/** Progres › Wytrzymałość: objętość, powtarzalność, testy dróg (trudność z kalibracji), czasy przejść, RPE */
 @Component({
   selector: 'app-tab-endurance',
   imports: [RouterLink, DatePlPipe, ChartPanel, MetricRow],
@@ -42,8 +42,8 @@ interface TestRow {
       <app-chart-panel question="Czy kończysz to, co zaplanowane?" hint="Powtarzalność: odsetek ukończonych dróg tlenowych (B) i pełnych obwodów bez odpadnięcia (C)."
         [config]="repeatChart()" emptyText="Brak treningów B lub C w wybranym zakresie." />
 
-      <app-chart-panel question="Czy tempo trzyma się przy kolejnych przejściach?" hint="Test dróg na tej samej 6a – czas każdego powtórzenia. Krótszy i stabilny czas przy narastającym zmęczeniu = lepsza wytrzymałość."
-        [config]="timingChart()" emptyText="Brak testu 4 × 6a z pomiarem czasu – wykonaj dzień 2 Baseline Test." />
+      <app-chart-panel question="Czy tempo trzyma się przy kolejnych przejściach?" hint="Test dróg na tej samej drodze testowej – czas każdego powtórzenia. Krótszy i stabilny czas przy narastającym zmęczeniu = lepsza wytrzymałość."
+        [config]="timingChart()" emptyText="Brak testu dróg z pomiarem czasu – wykonaj dzień 2 Baseline Test." />
 
       @if (testRows().length) {
         <section class="section">

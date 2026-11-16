@@ -9,6 +9,8 @@ import { compareBaselineResults } from '../../core/logic/assessment/compare';
 import { generateConclusions } from '../../core/logic/assessment/conclusions';
 import { CORE_LABELS, DEAD_HANG_END_LABELS, KIND_LABELS, PART_LABELS, STYLE_LABELS, TEST_STATUS_LABELS, WALL_LABELS } from '../../core/logic/assessment/labels';
 import { demoAssessments } from '../../core/logic/assessment/demo';
+import { AbilityReportView } from './ability-report';
+import { CalibrationOutcome } from '../../core/models/models';
 import { ChartView } from '../../shared/chart';
 import { DatePlPipe } from '../../shared/pipes';
 import { BaselineSteps, stepsFor } from './baseline-steps';
@@ -20,7 +22,7 @@ const r1 = (n: number | null | undefined) => (n == null ? '–' : String(Math.ro
 /** Raport Baseline / Retest / testu pośredniego + porównanie Baseline vs Retest */
 @Component({
   selector: 'app-assessment-report',
-  imports: [RouterLink, FormsModule, ChartView, DatePlPipe, BaselineSteps, Icon],
+  imports: [AbilityReportView, RouterLink, FormsModule, ChartView, DatePlPipe, BaselineSteps, Icon],
   templateUrl: './assessment-report.html',
   styleUrl: './assessment.scss',
 })
@@ -51,6 +53,21 @@ export class AssessmentReportPage {
   protected readonly cycleName = computed(() => (this.demo ? 'Demo' : this.store.cycles().find((c) => c.id === this.a()?.cycleId)?.name ?? ''));
   protected readonly strength = computed(() => (this.a()?.strength ? strengthResults(this.a()!.strength!) : null));
   protected readonly climbing = computed(() => (this.a()?.climbing ? climbingResults(this.a()!.climbing!) : null));
+  /** Profile zdolności – tylko gdy test zawiera pomiary (nie dla testu pośredniego) */
+  protected readonly abilities = computed(() => {
+    const a = this.a();
+    if (!a || a.kind === 'CONTROL' || (!a.strength && !a.climbing)) return null;
+    return this.store.abilityReportFor(a);
+  });
+  protected readonly calibration = computed(() => {
+    const a = this.a();
+    if (!a || this.demo || a.kind !== 'BASELINE') return null;
+    const cal = this.store.cycles().find((c) => c.id === a.cycleId)?.calibration;
+    return cal?.runs.length ? cal : null;
+  });
+  protected readonly outcomeLabels: Record<CalibrationOutcome, string> = {
+    confirmed: 'trudność potwierdzona', raise: 'za łatwo – podnosimy', lower: 'za trudno – obniżamy', hold: 'wynik mieszany – powtarzamy',
+  };
   protected readonly conclusions = computed(() => (this.a() ? generateConclusions(this.a()!) : null));
 
   /** Planowane sesje tego testu, które nie są jeszcze zakończone */

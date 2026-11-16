@@ -3,7 +3,7 @@ import { RouterLink } from '@angular/router';
 import { PlannedWorkout } from '../../core/models/models';
 import { AppStore } from '../../core/data/store';
 import { prescriptionFor } from '../../core/logic/plan';
-import { plannedShortName, prescriptionLines } from '../../core/logic/describe';
+import { plannedShortName, prescriptionLines, testGradeOf } from '../../core/logic/describe';
 import { isTest, SKIP_REASON_LABELS, STATUS_LABELS, TEMPLATES } from '../../core/logic/templates';
 import { isPending, slotViolations } from '../../core/logic/scheduling';
 import { sessionMaxPump, sessionRpe } from '../../core/logic/progression';
@@ -126,7 +126,7 @@ export class PlannedCard {
   });
   protected readonly lines = computed(() => {
     const c = this.store.cycles().find((x) => x.id === this.workout().cycleId);
-    return c ? prescriptionLines(this.workout().type, prescriptionFor(c, this.workout().week).params, this.workout().part) : [];
+    return c ? prescriptionLines(this.workout().type, prescriptionFor(c, this.workout().week).params, this.workout().part, testGradeOf(c)) : [];
   });
   /** Poprzednia sesja tego samego typu – kontekst przed startem */
   protected readonly prev = computed(() => {
