@@ -10,9 +10,11 @@ const css = (n: string, f: string) => (typeof document !== 'undefined' ? getComp
 export function palette() {
   resolvedTheme(); // zależność: zmiana motywu przelicza wykresy
   return {
-    // ograniczona paleta: grafit = bieżący wynik, kamień = odniesienie, pomarańcz = ryzyko, oliwka = drugi parametr
-    accent: css('--chart-1', '#181c19'), ok: css('--chart-4', '#263019'), bad: css('--chart-3', '#d96c45'), warn: css('--chart-3', '#d96c45'),
-    info: css('--chart-2', '#777c74'), faint: css('--chart-faint', '#c3c4bb'), muted: css('--chart-2', '#777c74'),
+    // Nordic Alpine: Moss = główna seria progresu, Glacier = metryka drugorzędna,
+    // Ember = rekordy / ryzyko, neutral = odniesienie i starsze serie (tokeny --color-chart-*)
+    accent: css('--color-chart-primary', '#a8d66d'), ok: css('--color-chart-secondary', '#79c7c0'), info: css('--color-chart-secondary', '#79c7c0'),
+    record: css('--color-chart-record', '#de8b63'), warn: css('--color-chart-risk', '#de8b63'), bad: css('--color-chart-risk', '#de8b63'),
+    faint: css('--color-chart-neutral', 'rgba(125, 141, 135, 0.42)'), muted: css('--color-chart-reference', '#7d8d87'),
   };
 }
 
@@ -55,7 +57,7 @@ export function pullUpTrendChart(xs: Assessment[]): ChartConfiguration | null {
   const c = palette();
   return {
     type: 'bar',
-    data: { labels: rows.map((x) => short(x.a)), datasets: [{ label: 'Dodatkowe obciążenie (kg)', data: rows.map((x) => x.r.addedWeightKg), backgroundColor: c.warn, borderRadius: 6 }] },
+    data: { labels: rows.map((x) => short(x.a)), datasets: [{ label: 'Dodatkowe obciążenie (kg)', data: rows.map((x) => x.r.addedWeightKg), backgroundColor: c.accent, borderRadius: 3 }] },
     options: { plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true } } },
   };
 }
@@ -69,7 +71,7 @@ export function coreTrendChart(xs: Assessment[]): ChartConfiguration | null {
     type: 'bar',
     data: {
       labels: rows.map((x) => `${short(x.a)} · ${CORE_LABELS[x.r.exercise!].split(' (')[0]}`),
-      datasets: [{ label: 'Czas utrzymania (s)', data: rows.map((x) => x.r.holdSeconds), backgroundColor: c.ok, borderRadius: 6 }],
+      datasets: [{ label: 'Czas utrzymania (s)', data: rows.map((x) => x.r.holdSeconds), backgroundColor: c.accent, borderRadius: 3 }],
     },
     options: { plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true } } },
   };
@@ -82,7 +84,7 @@ export function deadHangTrendChart(xs: Assessment[]): ChartConfiguration | null 
   const c = palette();
   return {
     type: 'bar',
-    data: { labels: rows.map((x) => short(x.a)), datasets: [{ label: 'Czas (s)', data: rows.map((x) => x.r.holdSeconds), backgroundColor: c.info, borderRadius: 6 }] },
+    data: { labels: rows.map((x) => short(x.a)), datasets: [{ label: 'Czas (s)', data: rows.map((x) => x.r.holdSeconds), backgroundColor: c.accent, borderRadius: 3 }] },
     options: { plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true, suggestedMax: 360 } } },
   };
 }
@@ -91,8 +93,8 @@ export function deadHangTrendChart(xs: Assessment[]): ChartConfiguration | null 
 
 const seriesColors = () => {
   const c = palette();
-  // starsze testy jaśniej, bieżący grafitem; pomarańcz zarezerwowany dla ryzyka
-  return [c.ok, c.faint, c.info, c.accent];
+  // najstarsze → bieżący: neutral, odniesienie, Glacier, Moss (Ember zarezerwowany dla rekordów i ryzyka)
+  return [c.faint, c.muted, c.info, c.accent];
 };
 
 /** 5. Route Timing – czasy przejść kolejnych prób */

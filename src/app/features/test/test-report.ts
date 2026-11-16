@@ -151,7 +151,8 @@ export class TestReportPage {
     if (!t) return null;
     const list: TestResult[] = [...this.series(), t];
     resolvedTheme();
-    const palette = [css('--faint', '#6b747d'), css('--info', '#7cb4f5'), css('--warn', '#f2b84b'), css('--accent', '#d6f54a')];
+    // najstarszy → bieżący test: neutral, odniesienie, Glacier, Moss
+    const palette = [css('--color-chart-neutral', 'rgba(125, 141, 135, 0.42)'), css('--color-chart-reference', '#7d8d87'), css('--color-chart-secondary', '#79c7c0'), css('--color-chart-primary', '#a8d66d')];
     return {
       type: 'line',
       data: {
