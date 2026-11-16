@@ -89,7 +89,7 @@
       <section class="next" [class.is-test]="n.p.part">
         <div class="next-head">
           <span class="eyebrow">Następna sesja · {{ n.when }}@if (n.deload) { · deload }</span>
-          <span class="eyebrow">{{ n.p.type }}</span>
+          <span class="type-chip" [class.T]="!!n.p.part" [attr.aria-label]="'Typ ' + n.t.code">{{ n.t.code }}</span>
         </div>
         <h2 class="next-title">{{ shortName(n.p) }}</h2>
         <p class="lead">{{ n.t.goal }}</p>

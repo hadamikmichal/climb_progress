@@ -27,11 +27,11 @@ const EMPTY = { type: 'bar', data: { labels: [], datasets: [] } } as ChartConfig
     </figure>
   `,
   styles: `
-    .panel { margin: 0; display: flex; flex-direction: column; gap: 12px; padding: 16px 0 20px; border-top: 1px solid var(--border-strong); min-width: 0; }
-    h3 { font-size: 1.05rem; }
-    .hint { font-size: 0.85rem; color: var(--muted); margin-top: 4px; }
-    .answer { font-size: 0.78rem; color: var(--text); padding-left: 10px; border-left: 2px solid var(--accent); }
-    .empty-state { font-size: 0.875rem; color: var(--muted); padding: 20px 16px; border: 1px dashed var(--border); border-radius: var(--radius-field); text-align: center; }
+    .panel { margin: 0; display: flex; flex-direction: column; gap: 14px; padding: 20px 0 24px; border-top: 1px solid var(--border); min-width: 0; }
+    h3 { font-size: 1.0625rem; }
+    .hint { font-size: 0.8125rem; color: var(--muted); margin-top: 4px; max-width: 70ch; }
+    .answer { font-size: 0.875rem; font-weight: 500; color: var(--text); padding: 10px 12px; background: var(--bg); border-left: 2px solid var(--accent); border-radius: 0 6px 6px 0; }
+    .empty-state { font-size: 0.875rem; color: var(--muted); padding: 28px 16px; background: var(--surface-2); border-radius: var(--radius-field); text-align: center; }
   `,
 })
 export class ChartPanel {

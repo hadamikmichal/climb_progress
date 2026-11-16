@@ -67,20 +67,21 @@ import { ReplaceSheet } from './replace-sheet';
   `,
   styles: `
     .sess { border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface); overflow: hidden; }
-    .sess.hero { border-color: var(--border-strong); }
-    .sess.alert { border-color: var(--warn); box-shadow: inset 3px 0 0 var(--warn); }
+    .sess.hero { box-shadow: inset 3px 0 0 var(--accent); }
+    .sess.alert { box-shadow: inset 3px 0 0 var(--warn-line); }
     .sess.done .name { color: var(--muted); }
     .sess.skipped .name { text-decoration: line-through; color: var(--muted); }
-    .head { display: flex; align-items: center; gap: 12px; width: 100%; min-height: 64px; padding: 10px 14px; border: 0; background: none; color: inherit; text-align: left; font: inherit; cursor: pointer; }
+    .head { display: flex; align-items: center; gap: 14px; width: 100%; min-height: 68px; padding: 12px 16px; border: 0; background: none; color: inherit; text-align: left; font: inherit; cursor: pointer; }
     .title { display: flex; flex-direction: column; gap: 2px; }
-    .name { font-family: var(--font-heading); font-weight: 700; text-transform: uppercase; letter-spacing: 0.01em; font-size: 0.95rem; }
-    .meta { font-size: 0.75rem; color: var(--muted); }
-    .conflict { display: flex; gap: 8px; align-items: flex-start; margin: 0 14px 10px; font-size: 0.82rem; color: var(--text); --icon: 16px; }
+    .name { font-weight: 600; font-size: 0.9375rem; letter-spacing: -0.005em; }
+    .head:hover .name { color: var(--accent-strong); }
+    .meta { font-size: 0.8125rem; color: var(--muted); font-variant-numeric: tabular-nums; }
+    .conflict { display: flex; gap: 8px; align-items: flex-start; margin: 0 16px 12px; font-size: 0.82rem; color: var(--text); --icon: 16px; }
     .conflict app-icon { color: var(--warn); margin-top: 2px; }
-    .body { display: flex; flex-direction: column; gap: 12px; padding: 0 14px 14px; animation: fade 160ms var(--ease); }
+    .body { display: flex; flex-direction: column; gap: 12px; padding: 0 16px 16px; animation: fade 160ms var(--ease); }
     .lines { margin: 0; padding: 0; list-style: none; border-top: 1px solid var(--border); font-size: 0.82rem; }
-    .lines li { padding: 8px 0; border-bottom: 1px solid var(--border); }
-    .prev { display: flex; flex-direction: column; gap: 2px; padding: 8px 12px; border-left: 3px solid var(--border); text-decoration: none; font-size: 0.85rem; }
+    .lines li { padding: 9px 0; border-bottom: 1px solid var(--border); }
+    .prev { display: flex; flex-direction: column; gap: 2px; padding: 10px 12px; background: var(--bg); border-radius: var(--radius-field); text-decoration: none; font-size: 0.85rem; }
     .actions { display: flex; flex-wrap: wrap; gap: 6px; }
     .actions .btn { flex: 1 1 auto; --icon: 16px; }
     .actions .btn.primary { flex-basis: 100%; }
