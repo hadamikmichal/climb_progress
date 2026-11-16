@@ -8,6 +8,7 @@ import { BrandMark } from './shared/brand';
 import { ThemeService } from './shared/theme';
 
 interface NavItem { path: string; label: string; icon: IconName; exact?: boolean }
+interface NavGroup { label: string; items: NavItem[]; end?: boolean }
 
 @Component({
   selector: 'app-root',
@@ -24,20 +25,27 @@ export class App {
   /** Ekran aktywnego treningu/testu ukrywa nawigację – mniej przypadkowych kliknięć na ścianie */
   protected readonly focusMode = computed(() => /^\/(session|test|assessment\/run)\//.test(this.url()));
 
-  protected readonly nav: NavItem[] = [
-    { path: '/', label: 'Dziś', exact: true, icon: 'today' },
-    { path: '/plan', label: 'Plan', icon: 'plan' },
-    { path: '/progress', label: 'Progres', icon: 'progress' },
-    { path: '/history', label: 'Historia', icon: 'history' },
-    { path: '/profile', label: 'Profil', icon: 'profile' },
+  /** Nawigacja w grupach: trening → analiza → konto */
+  protected readonly groups: NavGroup[] = [
+    { label: 'Trening', items: [
+      { path: '/', label: 'Dziś', exact: true, icon: 'today' },
+      { path: '/plan', label: 'Plan', icon: 'plan' },
+    ] },
+    { label: 'Analiza', items: [
+      { path: '/progress', label: 'Progres', icon: 'progress' },
+      { path: '/history', label: 'Historia', icon: 'history' },
+    ] },
+    { label: 'Konto', end: true, items: [{ path: '/profile', label: 'Profil', icon: 'profile' }] },
   ];
 
-  /** „TYDZ. 02 / 06” – tylko w trakcie cyklu */
-  protected readonly weekLabel = computed(() => {
+  /** Postęp cyklu (tydzień N z M) – tylko w trakcie cyklu */
+  protected readonly cycleProgress = computed(() => {
     const c = this.store.cycle();
     const w = this.store.currentWeek();
     if (!c?.planStart || w < 1 || w > c.weeks) return null;
-    return `Tydz. ${String(w).padStart(2, '0')} / ${String(c.weeks).padStart(2, '0')}`;
+    const pad = (n: number) => String(n).padStart(2, '0');
+    const steps = Array.from({ length: c.weeks }, (_, i) => (i + 1 < w ? 'done' : i + 1 === w ? 'now' : 'todo'));
+    return { week: pad(w), of: pad(c.weeks), steps };
   });
 
   constructor() {
@@ -46,7 +54,7 @@ export class App {
       const focus = this.focusMode();
       document.body.classList.toggle('mode-active', focus);
       const dark = focus || this.theme.isDark();
-      document.querySelector('meta[name="theme-color"]')?.setAttribute('content', dark ? '#181C19' : '#F1F0E9');
+      document.querySelector('meta[name="theme-color"]')?.setAttribute('content', dark ? '#1A1F1B' : '#F3F2ED');
     });
   }
 

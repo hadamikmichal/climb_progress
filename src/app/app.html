@@ -1,29 +1,39 @@
 @if (store.error(); as err) {
   <div class="page"><div class="card danger"><h2>Błąd danych</h2><p>{{ err }}</p></div></div>
 } @else if (!store.ready()) {
-  <div class="boot"><app-brand-mark [size]="40" /><span class="eyebrow">ClimbProgress</span></div>
+  <div class="boot" aria-busy="true"><app-brand-mark [size]="40" /><span class="boot-name">ClimbProgress</span></div>
 } @else {
   <div class="shell" [class.focus]="focusMode()" [class.mode-active]="focusMode()">
     @if (!focusMode()) {
       <header class="topbar">
-        <a routerLink="/" class="wordmark"><app-brand-mark [size]="24" /><span>CLIMBPROGRESS</span></a>
-        @if (weekLabel(); as w) { <span class="eyebrow kicker">{{ w }}</span> }
+        <a routerLink="/" class="wordmark" aria-label="ClimbProgress – Dziś"><app-brand-mark [size]="26" /><span>ClimbProgress</span></a>
+        @if (cycleProgress(); as cp) { <span class="top-week mono">Tydz. {{ cp.week }}<span class="of">/{{ cp.of }}</span></span> }
       </header>
       <nav class="nav" aria-label="Główna nawigacja">
         <div class="side-brand">
-          <a routerLink="/" class="wordmark"><app-brand-mark [size]="28" /><span>CLIMBPROGRESS</span></a>
-          <p class="tagline">Train with intent.<br />Climb with reserve.</p>
+          <a routerLink="/" class="wordmark"><app-brand-mark [size]="28" /><span>ClimbProgress</span></a>
         </div>
-        @for (item of nav; track item.path) {
-          <a [routerLink]="item.path" routerLinkActive="active" [routerLinkActiveOptions]="{ exact: !!item.exact }" class="nav-link" [attr.aria-label]="item.label">
-            <app-icon [name]="item.icon" />
-            <span>{{ item.label }}</span>
-          </a>
+        @for (g of groups; track g.label) {
+          <div class="nav-group" [class.end]="g.end">
+            <span class="nav-group-label">{{ g.label }}</span>
+            @for (item of g.items; track item.path) {
+              <a [routerLink]="item.path" routerLinkActive="active" [routerLinkActiveOptions]="{ exact: !!item.exact }" class="nav-link" #rla="routerLinkActive" [attr.aria-current]="rla.isActive ? 'page' : null">
+                <app-icon [name]="item.icon" />
+                <span>{{ item.label }}</span>
+              </a>
+            }
+          </div>
         }
         <div class="side-foot">
-          @if (weekLabel(); as w) { <span class="eyebrow">{{ w }}</span> }
-          <span class="eyebrow">{{ store.stage() }}</span>
-          <span class="eyebrow faint">Dane lokalnie · offline</span>
+          @if (cycleProgress(); as cp) {
+            <div class="cycle">
+              <div class="cycle-row"><span class="cycle-name">{{ store.stage() }}</span><span class="mono">{{ cp.week }}/{{ cp.of }}</span></div>
+              <div class="cycle-track" role="img" [attr.aria-label]="'Tydzień ' + cp.week + ' z ' + cp.of">
+                @for (s of cp.steps; track $index) { <span [class.done]="s === 'done'" [class.now]="s === 'now'"></span> }
+              </div>
+            </div>
+          }
+          <span class="local">Dane lokalnie · offline</span>
         </div>
       </nav>
     }
