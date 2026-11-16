@@ -1,53 +1,60 @@
 @use 'sass:color';
 
-// ClimbProgress – Design Tokens („Climbing Performance Journal”)
+// ClimbProgress – Design Tokens · NORDIC ALPINE (dark first)
 // Jedyne źródło prawdy dla kolorów, typografii, odstępów i promieni.
-// SCSS-owe zmienne służą do obliczeń w czasie kompilacji; komponenty używają custom properties (--*),
-// dzięki czemu Active Workout Mode może przełączyć cały kontekst kolorystyczny jedną klasą.
+//
+// Warstwy:
+//   1. paleta (zmienne SCSS – prymitywy, nigdy nie używane bezpośrednio w komponentach)
+//   2. tokeny semantyczne --color-* (custom properties) – jedyny interfejs dla komponentów
+//   3. konteksty: nordic (ciemny, domyślny), nordic-light (opcjonalny), Active Workout Mode (zawsze ciemny)
 
-// ---------- Paleta ----------
-$color-background: #f1f0e9; // Chalk – tło aplikacji
-$color-surface: #fbfaf6; // Limestone – powierzchnie robocze
-$color-foreground: #181c19; // Graphite – tekst i kontrast
-$color-muted: #777c74; // Stone Grey – informacje drugorzędne
-$color-border: #d5d5cc; // Stone Grey – separatory
-$color-accent: #d7ff3f; // Signal Lime – główne działania
-$color-accent-dark: #263019; // ciemna oliwka – tekst akcentowany na jasnym tle
-$color-warning: #d96c45; // Burnt Orange – ostrzeżenia, zmęczenie, ryzyko
+// ---------- 1. Paleta Nordic Alpine ----------
+$fjord: #11191b; // tło – głęboki fiord
+$slate: #1b282a; // powierzchnie robocze
+$slate-subtle: #202d2f; // wgłębienia, tory, pola
+$rock: #263638; // elementy uniesione
+$snow: #f0f3ed; // tekst główny
+$lichen: #aab6b0; // tekst drugorzędny
+$stone: #7d8d87; // metadane
+$moss: #a8d66d; // marka, CTA, progres
+$moss-hover: #bce785;
+$graphite: #17231a; // tekst na Moss / Ember
+$glacier: #79c7c0; // metryki drugorzędne, informacja, focus
+$ember: #de8b63; // rekordy, kamienie milowe, ostrzeżenia
+$granite: #344447; // obramowania
+$granite-subtle: #29383a;
+$alert: #e47776; // błędy i akcje destrukcyjne
 
-// pochodne
-$color-surface-sunk: #e8e7df; // wgłębienia (pola wyboru, tory wykresów)
-$color-faint: #9a9e95;
-$color-ok: #4a6a1c;
-$color-risk: #b4472a;
+// pochodne (wyłącznie miksy palety – bez nowych barw)
+$granite-strong: color.mix($granite, $stone, 55%);
 
 // ---------- Typografia ----------
-$font-heading: 'Archivo', 'Helvetica Neue', Arial, sans-serif;
-$font-body: 'DM Sans', system-ui, -apple-system, 'Segoe UI', sans-serif;
-$font-mono: 'IBM Plex Mono', ui-monospace, 'SFMono-Regular', Menlo, monospace;
+$font-heading: 'Geist', 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
+$font-body: 'Geist', 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
+$font-mono: 'Geist Mono', ui-monospace, 'SFMono-Regular', Menlo, monospace;
 
-// skala (mobile → desktop przez clamp)
-$type-display: clamp(2.75rem, 7vw + 1rem, 4.5rem);
-$type-h1: clamp(1.75rem, 3vw + 1rem, 2.5rem);
-$type-h2: 1.25rem;
+// skala (mobile → desktop przez clamp) – zwarta, liczby wydajności niosą charakter
+$type-display: clamp(2.5rem, 6vw + 1rem, 4rem);
+$type-h1: clamp(1.625rem, 2.4vw + 1rem, 2.25rem);
+$type-h2: 1.125rem;
 $type-h3: 1rem;
-$type-body: 1rem;
-$type-small: 0.875rem;
-$type-caption: 0.75rem;
+$type-body: 0.9375rem;
+$type-small: 0.8125rem;
+$type-caption: 0.6875rem;
 
 // ---------- Odstępy (4 · 8 · 12 · 16 · 24 · 32 · 48 · 64 · 80) ----------
 $space: (1: 4px, 2: 8px, 3: 12px, 4: 16px, 5: 24px, 6: 32px, 7: 48px, 8: 64px, 9: 80px);
 
-// ---------- Promienie ----------
+// ---------- Promienie (umiarkowane, 8–12 px dla kart) ----------
 $radius-field: 6px;
-$radius-button: 8px;
+$radius-button: 6px;
 $radius-card: 10px;
-$radius-container: 14px;
+$radius-container: 12px;
 
 // ---------- Ruch ----------
 $ease: cubic-bezier(0.2, 0, 0, 1);
 $dur-fast: 120ms;
-$dur: 200ms;
+$dur: 180ms;
 
 // ---------- Breakpointy ----------
 $bp-tablet: 768px;
@@ -56,75 +63,124 @@ $bp-wide: 1440px;
 
 @mixin tablet { @media (min-width: $bp-tablet) { @content; } }
 @mixin desktop { @media (min-width: $bp-desktop) { @content; } }
+@mixin wide { @media (min-width: $bp-wide) { @content; } }
 
-/// Kontekst jasny (domyślny – plan, analiza, historia)
-@mixin theme-light {
-  --bg: #{$color-background};
-  --surface: #{$color-surface};
-  --surface-2: #{$color-surface-sunk};
-  --surface-3: #{color.adjust($color-surface-sunk, $lightness: -4%)};
-  --border: #{$color-border};
-  --border-strong: #{$color-foreground};
-  --text: #{$color-foreground};
-  --muted: #{$color-muted};
-  --faint: #{$color-faint};
-  --accent: #{$color-accent};
-  --accent-ink: #{$color-foreground};
-  --accent-strong: #{$color-accent-dark};
-  --accent-soft: #{color.change($color-accent, $alpha: 0.35)};
-  --ok: #{$color-ok};
-  --warn: #{$color-warning};
-  --bad: #{$color-risk};
-  --info: #{$color-muted};
-  --chart-1: #{$color-foreground};
-  --chart-2: #{$color-muted};
-  --chart-3: #{$color-warning};
-  --chart-4: #{$color-accent-dark};
-  --chart-fill: #{$color-accent};
-  --select-bg: #{$color-foreground};
-  --select-ink: #{$color-background};
-  --chart-grid: rgba(24, 28, 25, 0.08);
-  --chart-faint: #c3c4bb;
-  --tooltip-bg: #{$color-foreground};
-  --tooltip-ink: #{$color-background};
-  --inverse-accent: #{$color-accent};
-  --overlay: rgba(24, 28, 25, 0.55);
-  color-scheme: light;
+/// Stałe palety udostępnione do podglądów (np. próbki motywu w Profilu, znak marki)
+@mixin palette-constants {
+  --palette-fjord: #{$fjord};
+  --palette-slate: #{$slate};
+  --palette-snow: #{$snow};
+  --palette-moss: #{$moss};
 }
 
-/// Kontekst ciemny – motyw ciemny całej aplikacji oraz Active Workout Mode
-/// (grafitowe tło, jasny tekst, Signal Lime dla timera i CTA)
-@mixin theme-dark {
-  --bg: #{$color-foreground};
-  --surface: #{color.adjust($color-foreground, $lightness: 4%)};
-  --surface-2: #{color.adjust($color-foreground, $lightness: 8%)};
-  --surface-3: #{color.adjust($color-foreground, $lightness: 13%)};
-  --border: #{color.adjust($color-foreground, $lightness: 16%)};
-  --border-strong: #{$color-background};
-  --text: #{$color-background};
-  --muted: #{color.adjust($color-muted, $lightness: 12%)};
-  --faint: #{$color-muted};
-  --accent: #{$color-accent};
-  --accent-ink: #{$color-foreground};
-  --accent-strong: #{$color-accent};
-  --accent-soft: #{color.change($color-accent, $alpha: 0.14)};
-  --ok: #{$color-accent};
-  --warn: #{color.adjust($color-warning, $lightness: 6%)};
-  --bad: #{color.adjust($color-warning, $lightness: 6%)};
-  --info: #{color.adjust($color-muted, $lightness: 12%)};
-  --chart-1: #{$color-background};
-  --chart-2: #{color.adjust($color-muted, $lightness: 8%)};
-  --chart-3: #{$color-warning};
-  --chart-4: #{$color-accent};
-  --chart-fill: #{$color-accent};
-  --select-bg: #{$color-accent};
-  --select-ink: #{$color-foreground};
-  --chart-grid: rgba(241, 240, 233, 0.1);
-  --chart-faint: #{color.adjust($color-foreground, $lightness: 22%)};
-  --tooltip-bg: #{$color-background};
-  --tooltip-ink: #{$color-foreground};
-  --inverse-accent: #{$color-accent-dark};
-  --overlay: rgba(0, 0, 0, 0.65);
-  --brand-outline: #{color.adjust($color-foreground, $lightness: 24%)};
+/// NORDIC ALPINE – kontekst ciemny (domyślny dla całej aplikacji i Active Workout Mode)
+@mixin theme-nordic {
+  /* powierzchnie */
+  --color-background: #{$fjord};
+  --color-surface: #{$slate};
+  --color-surface-elevated: #{$rock};
+  --color-surface-subtle: #{$slate-subtle};
+
+  /* typografia */
+  --color-text-primary: #{$snow};
+  --color-text-secondary: #{$lichen};
+  --color-text-muted: #{$stone};
+
+  /* marka */
+  --color-primary: #{$moss};
+  --color-primary-hover: #{$moss-hover};
+  --color-primary-foreground: #{$graphite};
+  --color-primary-strong: #{$moss}; // Moss jako tekst / linia na tle
+  --color-primary-soft: #{color.change($moss, $alpha: 0.12)};
+
+  /* akcenty */
+  --color-accent-glacier: #{$glacier};
+  --color-accent-ember: #{$ember};
+  --color-accent-ember-soft: #{color.change($ember, $alpha: 0.12)};
+
+  /* obramowania */
+  --color-border: #{$granite};
+  --color-border-subtle: #{$granite-subtle};
+  --color-border-strong: #{$granite-strong};
+
+  /* semantyka */
+  --color-success: #{$moss};
+  --color-warning: #{$ember};
+  --color-error: #{$alert};
+  --color-info: #{$glacier};
+  --color-on-accent: #{$graphite}; // tekst na wypełnieniu Ember / Error
+
+  /* stany wyboru (segmenty, chipy, skale) – stonowany Moss */
+  --color-selected-bg: #{color.change($moss, $alpha: 0.14)};
+  --color-selected-border: #{$moss};
+  --color-selected-fg: #{$snow};
+  --color-focus-ring: #{$glacier};
+
+  /* wykresy */
+  --color-chart-primary: #{$moss};
+  --color-chart-secondary: #{$glacier};
+  --color-chart-record: #{$ember};
+  --color-chart-risk: #{$ember};
+  --color-chart-neutral: #{color.change($stone, $alpha: 0.42)};
+  --color-chart-reference: #{$stone};
+  --color-chart-grid: #{color.change($snow, $alpha: 0.06)};
+  --color-tooltip-bg: #{$rock};
+  --color-tooltip-fg: #{$snow};
+  --color-tooltip-border: #{$granite-strong};
+
+  --color-overlay: #{color.change(color.mix($fjord, #000, 60%), $alpha: 0.72)};
+  --shadow-raised: 0 12px 32px -12px #{color.change(#000, $alpha: 0.6)};
   color-scheme: dark;
+}
+
+/// NORDIC ALPINE – wariant jasny (opcjonalny). Te same barwy, przyciemnione dla kontrastu AA na Snow.
+@mixin theme-nordic-light {
+  --color-background: #{$snow};
+  --color-surface: #{color.mix(#fff, $snow, 60%)};
+  --color-surface-elevated: #{color.mix($fjord, $snow, 9%)};
+  --color-surface-subtle: #{color.mix($fjord, $snow, 5%)};
+
+  --color-text-primary: #{$fjord};
+  --color-text-secondary: #{color.mix($lichen, $fjord, 45%)};
+  --color-text-muted: #{color.mix($stone, $fjord, 62%)};
+
+  --color-primary: #{$moss};
+  --color-primary-hover: #{$moss-hover};
+  --color-primary-foreground: #{$graphite};
+  --color-primary-strong: #{color.mix($moss, $fjord, 45%)};
+  --color-primary-soft: #{color.change($moss, $alpha: 0.28)};
+
+  --color-accent-glacier: #{color.mix($glacier, $fjord, 45%)};
+  --color-accent-ember: #{color.mix($ember, $fjord, 55%)};
+  --color-accent-ember-soft: #{color.change($ember, $alpha: 0.16)};
+
+  --color-border: #{color.mix($fjord, $snow, 16%)};
+  --color-border-subtle: #{color.mix($fjord, $snow, 10%)};
+  --color-border-strong: #{color.mix($fjord, $snow, 40%)};
+
+  --color-success: #{color.mix($moss, $fjord, 45%)};
+  --color-warning: #{color.mix($ember, $fjord, 55%)};
+  --color-error: #{color.mix($alert, $fjord, 60%)};
+  --color-info: #{color.mix($glacier, $fjord, 45%)};
+  --color-on-accent: #{$snow};
+
+  --color-selected-bg: #{$fjord};
+  --color-selected-border: #{$fjord};
+  --color-selected-fg: #{$snow};
+  --color-focus-ring: #{color.mix($glacier, $fjord, 45%)};
+
+  --color-chart-primary: #{color.mix($moss, $fjord, 55%)};
+  --color-chart-secondary: #{color.mix($glacier, $fjord, 60%)};
+  --color-chart-record: #{color.mix($ember, $fjord, 80%)};
+  --color-chart-risk: #{color.mix($ember, $fjord, 80%)};
+  --color-chart-neutral: #{color.change($stone, $alpha: 0.4)};
+  --color-chart-reference: #{color.mix($stone, $fjord, 70%)};
+  --color-chart-grid: #{color.change($fjord, $alpha: 0.07)};
+  --color-tooltip-bg: #{$fjord};
+  --color-tooltip-fg: #{$snow};
+  --color-tooltip-border: #{$fjord};
+
+  --color-overlay: #{color.change($fjord, $alpha: 0.55)};
+  --shadow-raised: 0 12px 32px -16px #{color.change($fjord, $alpha: 0.35)};
+  color-scheme: light;
 }

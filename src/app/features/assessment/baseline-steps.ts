@@ -67,16 +67,16 @@ const pad = (n: number) => String(n).padStart(2, '0');
     .bs-label { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
     .bs-bar { list-style: none; margin: 0; padding: 0; display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; gap: 3px; }
     .bs-bar button {
-      width: 100%; min-height: 32px; padding: 0; border: 0; background: transparent; color: var(--faint); cursor: pointer;
+      width: 100%; min-height: 32px; padding: 0; border: 0; background: transparent; color: var(--color-text-muted); cursor: pointer;
       display: flex; flex-direction: column; align-items: stretch; gap: 6px; font: inherit;
     }
     .bs-bar button:disabled { cursor: default; }
-    .seg { display: block; height: 4px; border-radius: 1px; background: var(--surface-3); transition: background 300ms var(--ease); }
+    .seg { display: block; height: 4px; border-radius: 1px; background: var(--color-surface-elevated); transition: background 300ms var(--ease); }
     .n { font-size: 0.66rem; letter-spacing: 0.04em; text-align: left; }
-    .done .seg { background: var(--muted); }
-    .done { color: var(--muted); }
-    .on .seg { background: var(--accent-strong); }
-    .on { color: var(--text); }
+    .done .seg { background: var(--color-text-secondary); }
+    .done { color: var(--color-text-secondary); }
+    .on .seg { background: var(--color-primary-strong); }
+    .on { color: var(--color-text-primary); }
   `,
 })
 export class BaselineSteps {

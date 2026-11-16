@@ -20,7 +20,7 @@
         <a class="row-link" routerLink="/progress"><span>Progres</span><app-icon name="arrow-right" /></a>
       </section>
     }
-    <section class="next">
+    <section class="next topo">
       <span class="eyebrow">Krok 01 · {{ completedCycle() ? 'nowy cykl' : 'start' }}</span>
       <h2 class="next-title">Baseline Test v1.0</h2>
       <p class="lead">Obowiązkowy punkt odniesienia przed cyklem. Dwie sesje w odstępie 48–72 h – <strong>dzień 1:</strong> siła palców, przyciągania, core i dead hang; <strong>dzień 2:</strong> 4 × 6a z pomiarem czasu, pompowania i regeneracji przedramion.</p>
@@ -38,7 +38,7 @@
   } @else if (c.status === 'baseline') {
     <!-- ============ FAZA TESTU POCZĄTKOWEGO ============ -->
     @if (baselineDone()) {
-      <section class="next">
+      <section class="next topo">
         <span class="eyebrow">Baseline Test zakończony</span>
         <h2 class="next-title">Wygeneruj plan</h2>
         @if (baselineSummary(); as b) {
@@ -86,7 +86,7 @@
     }
 
     @if (nextInfo(); as n) {
-      <section class="next" [class.is-test]="n.p.part">
+      <section class="next topo" [class.is-test]="n.p.part">
         <div class="next-head">
           <span class="eyebrow">Następna sesja · {{ n.when }}@if (n.deload) { · deload }</span>
           <span class="eyebrow">{{ n.p.type }}</span>
@@ -112,7 +112,7 @@
         </div>
       </section>
     } @else if (!store.overdue().length) {
-      <section class="next">
+      <section class="next topo">
         <span class="eyebrow">Plan zrealizowany</span>
         <h2 class="next-title">Brak zaplanowanych sesji</h2>
         <a class="btn" routerLink="/progress">Zobacz progres</a>

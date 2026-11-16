@@ -73,18 +73,18 @@ import { Icon } from '../../shared/icon';
   `,
   styles: `
     .run { max-width: 640px; padding-top: 0; gap: var(--s5); }
-    .run-bar { position: sticky; top: 0; z-index: 20; display: flex; align-items: center; gap: var(--s2); padding: calc(var(--s2) + env(safe-area-inset-top)) 0 var(--s2); background: var(--bg); border-bottom: 1px solid var(--border); }
+    .run-bar { position: sticky; top: 0; z-index: 20; display: flex; align-items: center; gap: var(--s2); padding: calc(var(--s2) + env(safe-area-inset-top)) 0 var(--s2); background: var(--color-background); border-bottom: 1px solid var(--color-border); }
     .run-title { font-family: var(--font-heading); font-weight: 700; font-size: 0.95rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    .icon-btn { display: inline-grid; place-items: center; width: 48px; height: 48px; border-radius: 8px; color: var(--text); --icon: 22px; flex: none; }
-    .icon-btn:hover { background: var(--surface); }
+    .icon-btn { display: inline-grid; place-items: center; width: 48px; height: 48px; border-radius: 8px; color: var(--color-text-primary); --icon: 22px; flex: none; }
+    .icon-btn:hover { background: var(--color-surface); }
     .saved { white-space: nowrap; }
-    .saved.err { color: var(--warn); }
+    .saved.err { color: var(--color-warning); }
     .intro { display: flex; flex-direction: column; gap: var(--s4); }
     .intro-title { font-size: clamp(2.2rem, 9vw, 3rem); line-height: 0.95; letter-spacing: -0.035em; }
-    .facts { list-style: none; margin: 0; padding: 0; border-top: 1px solid var(--border); }
-    .facts li { display: flex; gap: var(--s3); padding: 12px 0; border-bottom: 1px solid var(--border); font-weight: 500; }
-    .facts .num { color: var(--accent-strong); min-width: 28px; }
-    .step-foot { position: sticky; bottom: 0; padding: var(--s3) 0 calc(var(--s3) + env(safe-area-inset-bottom)); background: linear-gradient(to top, var(--bg) 70%, transparent); }
+    .facts { list-style: none; margin: 0; padding: 0; border-top: 1px solid var(--color-border); }
+    .facts li { display: flex; gap: var(--s3); padding: 12px 0; border-bottom: 1px solid var(--color-border); font-weight: 500; }
+    .facts .num { color: var(--color-primary-strong); min-width: 28px; }
+    .step-foot { position: sticky; bottom: 0; padding: var(--s3) 0 calc(var(--s3) + env(safe-area-inset-bottom)); background: linear-gradient(to top, var(--color-background) 70%, transparent); }
     .discard { margin-top: var(--s5); }
   `,
 })

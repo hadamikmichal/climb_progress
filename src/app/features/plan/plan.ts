@@ -84,23 +84,23 @@ import { WEEKDAY_SHORT } from '../../core/logic/dates';
     .weeknav { display: flex; gap: 6px; --icon: 18px; }
     .weeknav .btn { min-width: 48px; min-height: 48px; padding: 0 12px; }
     .days { list-style: none; margin: 0; padding: 0; }
-    .day { display: grid; grid-template-columns: 56px minmax(0, 1fr); gap: 12px; padding: 12px 0; border-bottom: 1px solid var(--border); }
+    .day { display: grid; grid-template-columns: 56px minmax(0, 1fr); gap: 12px; padding: 12px 0; border-bottom: 1px solid var(--color-border); }
     .day-label { display: flex; flex-direction: column; gap: 2px; padding-top: 6px; }
     .dn { text-transform: uppercase; font-weight: 600; font-size: 0.85rem; }
-    .dd { font-size: 0.75rem; color: var(--muted); }
-    .day.today .dn { background: var(--accent); color: var(--accent-ink); padding: 1px 6px; border-radius: 4px; align-self: flex-start; }
+    .dd { font-size: 0.75rem; color: var(--color-text-secondary); }
+    .day.today .dn { background: var(--color-primary); color: var(--color-primary-foreground); padding: 1px 6px; border-radius: 4px; align-self: flex-start; }
     .day-body { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
     .recovery {
       min-height: 44px; display: flex; align-items: center; padding: 0 12px; border-radius: 6px;
-      background: repeating-linear-gradient(-45deg, transparent 0 6px, var(--surface-2) 6px 7px);
+      background: repeating-linear-gradient(-45deg, transparent 0 6px, var(--color-surface-subtle) 6px 7px);
     }
     .levels { display: grid; gap: 12px; }
     @media (min-width: 768px) { .levels { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
     .level { display: flex; gap: 12px; align-items: flex-start; }
     .level .grow { display: flex; flex-direction: column; gap: 2px; }
-    .event { font-size: 0.88rem; padding: 8px 0; border-bottom: 1px solid var(--border); }
-    .event.warn { box-shadow: inset 3px 0 0 var(--warn); padding-left: 10px; }
-    .link { text-decoration: none; color: var(--text); }
+    .event { font-size: 0.88rem; padding: 8px 0; border-bottom: 1px solid var(--color-border); }
+    .event.warn { box-shadow: inset 3px 0 0 var(--color-warning); padding-left: 10px; }
+    .link { text-decoration: none; color: var(--color-text-primary); }
     .small { font-size: 0.8rem; }
   `,
 })

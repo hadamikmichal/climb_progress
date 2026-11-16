@@ -11,12 +11,12 @@ import { Component, input } from '@angular/core';
     </div>
   `,
   styles: `
-    .sc { display: flex; flex-direction: column; gap: 4px; padding: 10px 0 12px; border-top: 1px solid var(--border-strong); min-width: 0; }
-    .lbl { font-family: var(--font-mono); font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); }
+    .sc { display: flex; flex-direction: column; gap: 4px; padding: 10px 0 12px; border-top: 1px solid var(--color-border-strong); min-width: 0; }
+    .lbl { font-family: var(--font-mono); font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--color-text-secondary); }
     .val { font-family: var(--font-mono); font-size: 2rem; font-weight: 500; letter-spacing: -0.04em; line-height: 1; }
-    .val small { font-size: 0.85rem; color: var(--muted); letter-spacing: 0; margin-left: 2px; }
-    .nt .val { font-size: 0.75rem; color: var(--faint); letter-spacing: 0.1em; padding: 8px 0; }
-    .sub { font-family: var(--font-mono); font-size: 0.72rem; color: var(--muted); }
+    .val small { font-size: 0.85rem; color: var(--color-text-secondary); letter-spacing: 0; margin-left: 2px; }
+    .nt .val { font-size: 0.75rem; color: var(--color-text-muted); letter-spacing: 0.1em; padding: 8px 0; }
+    .sub { font-family: var(--font-mono); font-size: 0.72rem; color: var(--color-text-secondary); }
   `,
 })
 export class ScoreChip {

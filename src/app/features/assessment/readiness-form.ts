@@ -67,12 +67,12 @@ import { NumberStepper } from '../../shared/number-stepper';
     .rf { display: flex; flex-direction: column; gap: var(--s5); }
     .grp { display: flex; flex-direction: column; gap: var(--s2); }
     .compact { gap: var(--s2); }
-    .qs { display: flex; flex-direction: column; border-top: 1px solid var(--border); }
+    .qs { display: flex; flex-direction: column; border-top: 1px solid var(--color-border); }
     .qs > .kicker { padding: var(--s3) 0 var(--s2); }
-    .q { display: grid; grid-template-columns: minmax(0, 1fr) 176px; align-items: center; gap: var(--s3); min-height: 60px; padding: 6px 0; border-top: 1px solid var(--border); font-weight: 500; }
-    .params { font-family: var(--font-mono); font-size: 0.78rem; color: var(--muted); }
+    .q { display: grid; grid-template-columns: minmax(0, 1fr) 176px; align-items: center; gap: var(--s3); min-height: 60px; padding: 6px 0; border-top: 1px solid var(--color-border); font-weight: 500; }
+    .params { font-family: var(--font-mono); font-size: 0.78rem; color: var(--color-text-secondary); }
     .check-line { display: flex; gap: 10px; align-items: flex-start; font-size: 0.9rem; }
-    .foot { position: sticky; bottom: 0; padding: var(--s3) 0 calc(var(--s3) + env(safe-area-inset-bottom)); background: linear-gradient(to top, var(--bg) 70%, transparent); }
+    .foot { position: sticky; bottom: 0; padding: var(--s3) 0 calc(var(--s3) + env(safe-area-inset-bottom)); background: linear-gradient(to top, var(--color-background) 70%, transparent); }
   `,
 })
 export class TestReadinessForm {

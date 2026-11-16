@@ -27,11 +27,11 @@ const EMPTY = { type: 'bar', data: { labels: [], datasets: [] } } as ChartConfig
     </figure>
   `,
   styles: `
-    .panel { margin: 0; display: flex; flex-direction: column; gap: 12px; padding: 16px 0 20px; border-top: 1px solid var(--border-strong); min-width: 0; }
+    .panel { margin: 0; display: flex; flex-direction: column; gap: 12px; padding: 16px 0 20px; border-top: 1px solid var(--color-border-strong); min-width: 0; }
     h3 { font-size: 1.05rem; }
-    .hint { font-size: 0.85rem; color: var(--muted); margin-top: 4px; }
-    .answer { font-size: 0.78rem; color: var(--text); padding-left: 10px; border-left: 2px solid var(--accent); }
-    .empty-state { font-size: 0.875rem; color: var(--muted); padding: 20px 16px; border: 1px dashed var(--border); border-radius: var(--radius-field); text-align: center; }
+    .hint { font-size: 0.85rem; color: var(--color-text-secondary); margin-top: 4px; }
+    .answer { font-size: 0.78rem; color: var(--color-text-primary); padding-left: 10px; border-left: 2px solid var(--color-primary); }
+    .empty-state { font-size: 0.875rem; color: var(--color-text-secondary); padding: 20px 16px; border: 1px dashed var(--color-border); border-radius: var(--radius-field); text-align: center; }
   `,
 })
 export class ChartPanel {
