@@ -35,7 +35,7 @@ export const ATTEMPT_STATUS_LABELS: Record<AttemptStatus, string> = {
 
 export const KIND_LABELS: Record<AssessmentKind, string> = {
   BASELINE: 'Baseline Test v1.0',
-  CONTROL: 'Test pośredni 3 × 6a',
+  CONTROL: 'Test pośredni 3 × próba',
   FINAL: 'Retest – Baseline Test v1.0',
 };
 

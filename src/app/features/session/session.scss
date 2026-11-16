@@ -123,3 +123,11 @@
 .facts li { padding: 10px 0; border-bottom: 1px solid var(--color-border); }
 .saved-title { animation: rise 300ms var(--ease); }
 .small { font-size: 0.82rem; }
+
+/* wyjaśnienie doboru treningu */
+.why-box { display: flex; flex-direction: column; gap: 12px; padding: 14px 16px; border: 1px solid var(--color-border); border-left: 3px solid var(--color-primary); border-radius: 0 var(--radius-sm) var(--radius-sm) 0; background: var(--color-surface); font-size: 0.9rem; }
+.why-box > div { display: flex; flex-direction: column; gap: 3px; }
+.why-box .held { border-top: 1px solid var(--color-border); padding-top: 10px; }
+.why-box .held .eyebrow { color: var(--color-warning); }
+.why-box details summary { cursor: pointer; }
+.why-box details p { margin-top: 6px; }

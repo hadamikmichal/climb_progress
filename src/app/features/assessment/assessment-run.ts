@@ -38,7 +38,7 @@ import { Icon } from '../../shared/icon';
           @if (p.part === 'strength' && a.strength) {
             <app-strength-session [assessment]="a" (update)="apply($event)" (postpone)="postpone($event)" />
           } @else if (p.part === 'climbing' && a.climbing) {
-            <app-climbing-session [assessment]="a" [referenceRoute]="referenceRoute()" (update)="apply($event)" (postpone)="postpone($event)" />
+            <app-climbing-session [assessment]="a" [referenceRoute]="referenceRoute()" [targetGrade]="testGrade()" [calibrating]="calibrating()" [benchmarkLocked]="!!cycle()?.benchmark" (update)="apply($event)" (postpone)="postpone($event)" />
           }
           @if (partStatus() !== 'completed') {
             <button class="btn ghost block discard" type="button" (click)="discard()">Porzuć tę sesję (usuń jej dane)</button>
@@ -57,7 +57,8 @@ import { Icon } from '../../shared/icon';
                 <li><span class="num">05</span>Dead Hang · maks. 6:00</li>
                 <li><span class="num">⏱</span>ok. 60–75 min</li>
               } @else {
-                <li><span class="num">{{ p.type === 'CONTROL' ? '×3' : '×4' }}</span>6a na tej samej drodze · przerwy 3:00</li>
+                <li><span class="num">{{ p.type === 'CONTROL' ? '×3' : '×4' }}</span>{{ testGrade() }} na tej samej drodze · przerwy {{ restText() }}</li>
+                @if (calibrating()) { <li><span class="num">≈</span>Sesja kalibracyjna – sprawdzamy, czy trudność jest dobrze dobrana</li> }
                 <li><span class="num">⏱</span>Czas, RPE i pompowanie po każdej próbie</li>
                 <li><span class="num">↘</span>Recovery Curve · 0, 1, 2, 3 min</li>
               }
@@ -117,7 +118,24 @@ export class AssessmentRunPage implements LeaveGuarded {
   protected readonly partLabel = computed(() => {
     const p = this.planned();
     if (!p?.part) return '';
-    return p.type === 'CONTROL' ? 'Test pośredni 3 × 6a' : PART_LABELS[p.part];
+    return p.type === 'CONTROL' ? `Test pośredni 3 × ${this.testGrade()}` : PART_LABELS[p.part];
+  });
+  protected readonly cycle = computed(() => {
+    const p = this.planned();
+    return p ? this.store.cycles().find((c) => c.id === p.cycleId) ?? null : null;
+  });
+  /** Trudność testu dróg: zablokowany benchmark lub bieżąca kalibracja (nie zawsze 6a) */
+  protected readonly testGrade = computed(() => {
+    const c = this.cycle();
+    return c?.benchmark?.grade ?? c?.calibration?.grade ?? this.referenceRoute()?.frenchGrade ?? '6a';
+  });
+  protected readonly restText = computed(() => {
+    const s = this.cycle()?.benchmark?.restSeconds ?? 180;
+    return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
+  });
+  protected readonly calibrating = computed(() => {
+    const c = this.cycle();
+    return this.planned()?.type === 'BASELINE' && !c?.benchmark && c?.calibration?.status === 'pending';
   });
   protected readonly kind = computed(() => {
     const t = this.planned()?.type;

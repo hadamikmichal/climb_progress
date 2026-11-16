@@ -26,6 +26,34 @@
       <label class="field">Długość dróg (m)<input type="number" inputmode="numeric" [ngModel]="p().routeLengthM" (ngModelChange)="edit(setNum('routeLengthM', $event))" /></label>
     </div>
 
+    <header class="pf-head sub"><span class="num">01·b</span><h2>Poziom wspinaczkowy</h2><span class="eyebrow">kalibracja testu</span></header>
+    <p class="faint">Na tej podstawie dobieramy trudność testu dróg w Baseline Test – nie każdy test to 4 × 6a. Liczy się trudność, którą potrafisz powtarzać, nie tylko RP.</p>
+    <div class="grid-2 grid-md-3">
+      <label class="field">Najtrudniejsza droga RP
+        <select [ngModel]="intake().rpGrade" (ngModelChange)="setIntake('rpGrade', $event)"><option [ngValue]="null">–</option>@for (g of grades; track g) { <option [ngValue]="g">{{ g }}</option> }</select>
+      </label>
+      <label class="field">Najtrudniejsza OS / flash
+        <select [ngModel]="intake().osGrade" (ngModelChange)="setIntake('osGrade', $event)"><option [ngValue]="null">–</option>@for (g of grades; track g) { <option [ngValue]="g">{{ g }}</option> }</select>
+      </label>
+      <label class="field">Regularnie kończę kilka dróg na
+        <select [ngModel]="intake().repeatableGrade" (ngModelChange)="setIntake('repeatableGrade', $event)"><option [ngValue]="null">–</option>@for (g of grades; track g) { <option [ngValue]="g">{{ g }}</option> }</select>
+      </label>
+      <label class="field">Styl wspinania
+        <select [ngModel]="intake().style" (ngModelChange)="setIntake('style', $event)">@for (s of styles; track s.key) { <option [ngValue]="s.key">{{ s.label }}</option> }</select>
+      </label>
+      <label class="field">Dróg w typowej sesji<input type="number" inputmode="numeric" min="1" max="40" [ngModel]="intake().routesPerSession" (ngModelChange)="setIntake('routesPerSession', $event === '' || $event == null ? null : +$event)" /></label>
+      <label class="field">Najtrudniejszy boulder (Font, opcjonalnie)
+        <select [ngModel]="intake().boulderGrade" (ngModelChange)="setIntake('boulderGrade', $event)"><option [ngValue]="null">–</option>@for (g of fontGrades; track g) { <option [ngValue]="g">{{ g }}</option> }</select>
+      </label>
+    </div>
+    @if (candidate(); as cand) {
+      <div class="note info pf-cand">
+        <p><span class="eyebrow">Kandydacki test dróg</span> <strong class="mono">{{ levels[cand.level].label }} · 4 × {{ cand.grade }}</strong></p>
+        @for (r of cand.reasons; track r) { <p class="small">{{ r }}</p> }
+        @if (benchmark(); as b) { <p class="small"><strong>Masz już zablokowany test {{ b.attempts }} × {{ b.grade }}</strong> – retesty używają go bez zmian; wywiad wpłynie tylko na dobór treningu.</p> }
+      </div>
+    }
+
     <header class="pf-head sub"><span class="num">02</span><h2>Dni treningowe</h2></header>
     <div class="grid-md-3">
       @for (t of types; track t) {
@@ -58,7 +86,20 @@
     <section class="pf-sec">
       <header class="pf-head"><span class="num">04</span><h2>Parametry cyklu</h2><span class="eyebrow">bieżący poziom</span></header>
       <p class="faint">Zwykle zmienia je moduł adaptacji. Ręczna zmiana zostanie zapisana z wyjaśnieniem w historii zmian planu.</p>
-      <h4 class="eyebrow kicker pf-h4">B – Max Hangs</h4>
+      <h4 class="eyebrow kicker pf-h4">B – trening palców</h4>
+      <div class="grid-2 grid-md-3">
+        <label class="field">Protokół
+          <select [ngModel]="n.hangboard.protocol ?? 'max_hangs'" (ngModelChange)="editParams(pp('hangboard', 'protocol', $event))">
+            <option value="max_hangs">Max Hangs – siła maksymalna</option>
+            <option value="repeaters">Repeaters – osobny protokół</option>
+          </select>
+        </label>
+        @if (n.hangboard.protocol === 'repeaters') {
+          <label class="field">Zwis / przerwa (s)<span class="row"><input type="number" min="3" max="15" [ngModel]="n.hangboard.repeaterOnSec ?? 7" (ngModelChange)="editParams(pp('hangboard', 'repeaterOnSec', $event))" /><input type="number" min="2" max="10" [ngModel]="n.hangboard.repeaterOffSec ?? 3" (ngModelChange)="editParams(pp('hangboard', 'repeaterOffSec', $event))" /></span></label>
+          <label class="field">Powtórzeń w serii<input type="number" min="3" max="10" [ngModel]="n.hangboard.repeaterReps ?? 6" (ngModelChange)="editParams(pp('hangboard', 'repeaterReps', $event))" /></label>
+        }
+      </div>
+      @if (n.hangboard.protocol === 'repeaters') { <p class="faint">Repeaters nigdy nie są włączane automatycznie – to Twój wybór. Progresja nadal zmienia jeden parametr naraz.</p> }
       <div class="grid-2 grid-md-3">
         <label class="field">Krawądka<input [ngModel]="n.hangboard.edge" (ngModelChange)="editParams(pp('hangboard', 'edge', $event))" /></label>
         <label class="field">Rozmiar (mm)<input type="number" [ngModel]="n.hangboard.edgeSizeMm" (ngModelChange)="editParams(pp('hangboard', 'edgeSizeMm', $event))" /></label>
@@ -90,14 +131,28 @@
         <label class="field">Przerwa (min)<input type="number" min="1" [ngModel]="n.aerobic.restMin" (ngModelChange)="editParams(pp('aerobic', 'restMin', $event))" /></label>
       </div>
       <h4 class="eyebrow kicker pf-h4">C – wytrzymałość siłowa</h4>
+      @let def = peDef(n.powerEndurance);
+      <label class="field">Protokół
+        <select [ngModel]="def.id" (ngModelChange)="setProtocol($event)">@for (d of peProtocols; track d.id) { <option [ngValue]="d.id">{{ d.name }}</option> }</select>
+      </label>
+      <p class="faint">{{ def.name }}: {{ def.purpose.join(' · ') }}. Protokoły nie tworzą drabiny – dobiera się je do celu.</p>
       <div class="grid-2 grid-md-3">
-        <label class="field">Serie<input type="number" min="1" max="4" [ngModel]="n.powerEndurance.sets" (ngModelChange)="editParams(pp('powerEndurance', 'sets', $event))" /></label>
-        <label class="field">Dróg w serii<input type="number" min="2" max="4" [ngModel]="n.powerEndurance.routesPerSet" (ngModelChange)="editParams(pp('powerEndurance', 'routesPerSet', $event))" /></label>
-        <label class="field">Trudność
-          <select [ngModel]="n.powerEndurance.grade" (ngModelChange)="editParams(pp('powerEndurance', 'grade', $event))">@for (g of grades; track g) { <option [value]="g">{{ g }}</option> }</select>
+        <label class="field">{{ def.id === 'route_intervals' ? 'Rundy' : def.id === 'boulder_4x4' ? 'Rundy' : 'Serie' }}<input type="number" [min]="def.limits.setsMin" [max]="def.limits.setsMax" [ngModel]="n.powerEndurance.sets" (ngModelChange)="editParams(pp('powerEndurance', 'sets', $event))" /></label>
+        @if (def.id !== 'route_intervals') {
+          <label class="field">{{ def.unit.many | titlecase }} w {{ def.setLabel === 'runda' ? 'rundzie' : 'serii' }}<input type="number" [min]="def.limits.unitsMin" [max]="def.limits.unitsMax" [ngModel]="n.powerEndurance.routesPerSet" (ngModelChange)="editParams(pp('powerEndurance', 'routesPerSet', $event))" /></label>
+        } @else {
+          <label class="field">Czas wspinania (s)<input type="number" min="45" [max]="def.limits.workSecMax ?? 240" step="15" [ngModel]="n.powerEndurance.workSec ?? 120" (ngModelChange)="editParams(pp('powerEndurance', 'workSec', $event))" /></label>
+        }
+        <label class="field">Trudność{{ def.font ? ' (Font)' : '' }}
+          <select [ngModel]="n.powerEndurance.grade" (ngModelChange)="editParams(pp('powerEndurance', 'grade', $event))">@for (g of def.font ? fontGrades : grades; track g) { <option [value]="g">{{ g }}</option> }</select>
         </label>
-        <label class="field">Przerwa między drogami (min)<input type="number" min="1" [ngModel]="n.powerEndurance.restBetweenRoutesMin" (ngModelChange)="editParams(pp('powerEndurance', 'restBetweenRoutesMin', $event))" /></label>
-        <label class="field">Przerwa między seriami (min)<input type="number" min="5" [ngModel]="n.powerEndurance.restBetweenSetsMin" (ngModelChange)="editParams(pp('powerEndurance', 'restBetweenSetsMin', $event))" /></label>
+        @if (def.id === 'boulder_4x4') {
+          <label class="field">Przechwytów w problemie<input type="number" min="4" max="20" [ngModel]="n.powerEndurance.movesPerProblem ?? 8" (ngModelChange)="editParams(pp('powerEndurance', 'movesPerProblem', $event))" /></label>
+        }
+        @if (def.id !== 'route_intervals' && def.id !== 'linked_routes') {
+          <label class="field">Przerwa między {{ def.unit.many }} (min)<input type="number" min="0" step="0.5" [ngModel]="n.powerEndurance.restBetweenRoutesMin" (ngModelChange)="editParams(pp('powerEndurance', 'restBetweenRoutesMin', $event))" /></label>
+        }
+        <label class="field">{{ def.id === 'route_intervals' ? 'Odpoczynek w interwale' : 'Przerwa między ' + (def.setLabel === 'runda' ? 'rundami' : 'seriami') }} (min)<input type="number" min="0.5" step="0.5" [ngModel]="n.powerEndurance.restBetweenSetsMin" (ngModelChange)="editParams(pp('powerEndurance', 'restBetweenSetsMin', $event))" /></label>
       </div>
       <button class="btn primary big pf-save" type="button" (click)="saveParams()">Zapisz parametry</button>
     </section>

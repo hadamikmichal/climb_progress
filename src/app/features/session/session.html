@@ -33,6 +33,17 @@
         <ol class="brief">
           @for (l of prescLines(); track l) { <li class="mono">{{ l }}</li> }
         </ol>
+        @if (explain(); as x) {
+          <div class="why-box">
+            <div><span class="eyebrow">Dlaczego ten trening</span>@for (l of x.why; track l) { <p>{{ l }}</p> }</div>
+            <div><span class="eyebrow">Aktualna trudność</span>@for (l of x.level; track l) { <p class="mono small">{{ l }}</p> }</div>
+            <div><span class="eyebrow">Cel sesji</span>@for (l of x.goal; track l) { <p>{{ l }}</p> }</div>
+            @if (x.notIncreased.length) {
+              <div class="held"><span class="eyebrow">Dlaczego obciążenie nie wzrosło</span>@for (l of x.notIncreased; track l) { <p class="small">{{ l }}</p> }</div>
+            }
+            <details><summary class="eyebrow">Co poprawić, aby przejść dalej</summary>@for (l of x.nextStep; track l) { <p class="small">{{ l }}</p> }</details>
+          </div>
+        }
         @if (presc()?.deload) { <div class="note warn">Tydzień deload – objętość obniżona. Sesja nie wpływa na progresję.</div> }
         @if (partial()) { <div class="note info">Zapis częściowego wykonania: odhacz tylko to, co faktycznie zostało zrobione.</div> }
         @if (assessment(); as a) {
@@ -143,10 +154,12 @@
         <!-- ---------- DROGI TLENOWE (B) / OBWODY (C) ---------- -->
         @if (ex.kind === 'routes' || ex.kind === 'circuit') {
           @if (ex.kind === 'circuit') {
+            @let pu = peUnits();
             <div class="counter dual">
-              <div><span class="eyebrow">Seria</span><span class="mono big-count">{{ d.currentSet.toString().padStart(2, '0') }}<span class="of"> / {{ d.sets.length.toString().padStart(2, '0') }}</span></span></div>
-              <div><span class="eyebrow">Droga</span><span class="mono big-count">{{ currentRouteNo().toString().padStart(2, '0') }}<span class="of"> / {{ setRoutes().length.toString().padStart(2, '0') }}</span></span></div>
+              <div><span class="eyebrow">{{ pu.set }}</span><span class="mono big-count">{{ d.currentSet.toString().padStart(2, '0') }}<span class="of"> / {{ d.sets.length.toString().padStart(2, '0') }}</span></span></div>
+              <div><span class="eyebrow">{{ pu.unit }}</span><span class="mono big-count">{{ currentRouteNo().toString().padStart(2, '0') }}<span class="of"> / {{ setRoutes().length.toString().padStart(2, '0') }}</span></span></div>
             </div>
+            @if (pu.hint) { <p class="spec-sub">{{ pu.hint }}</p> }
           } @else {
             <div class="counter">
               <span class="eyebrow">Droga</span>
@@ -159,7 +172,7 @@
               <span class="phase-label">{{ tm.label }}{{ tm.pausedAt ? ' · pauza' : '' }}</span>
               <span class="mono clock">{{ clock(remaining()) }}</span>
               <div class="track"><span [style.width.%]="timerPct()"></span></div>
-              @if (currentRoute(); as r) { <span class="next mono">Następna droga · {{ r.grade }}</span> }
+              @if (currentRoute(); as r) { <span class="next mono">Następna {{ ex.kind === 'circuit' ? peUnits().unit.toLowerCase() : 'droga' }} · {{ r.grade }}</span> }
             </div>
             @if (lastRoute(); as lr) {
               <div class="form-block">
@@ -180,8 +193,8 @@
             @let sl = setLog(d.currentSet);
             @if (sl) {
               <div class="form-block enter">
-                <h2>Po serii {{ d.currentSet }}</h2>
-                <label class="field">RPE serii</label>
+                <h2>Po {{ peUnits().setLoc }} {{ d.currentSet }}</h2>
+                <label class="field">RPE {{ peUnits().setGen }}</label>
                 <app-scale [min]="1" [max]="10" [hotFrom]="9" [value]="sl.rpe" (valueChange)="setField(d.currentSet, 'rpe', $event)" />
                 <label class="field">Pompowanie przedramion</label>
                 <app-scale [min]="0" [max]="10" [hotFrom]="8" [value]="sl.pump" (valueChange)="setField(d.currentSet, 'pump', $event)" low="brak" high="skrajne" />
@@ -210,7 +223,7 @@
               </div>
             }
             @if (ex.kind === 'circuit') {
-              <div class="btn-row">@for (s of d.sets; track s.setIndex) { <button class="btn sm" [class.dark]="s.setIndex === d.currentSet" type="button" (click)="goSet(s.setIndex)">Seria {{ s.setIndex }}</button> }</div>
+              <div class="btn-row">@for (s of d.sets; track s.setIndex) { <button class="btn sm" [class.dark]="s.setIndex === d.currentSet" type="button" (click)="goSet(s.setIndex)">{{ peUnits().set }} {{ s.setIndex }}</button> }</div>
             }
             <button class="btn ghost sm" type="button" (click)="addExtraRoute()"><app-icon name="plus" /> Dodatkowa droga</button>
           </details>
@@ -309,7 +322,7 @@
                   <button class="btn xl dark-outline" type="button" (click)="completeRoute('fell')"><app-icon name="x" /> Odpadnięcie</button>
                 </div>
               } @else if (ex.kind === 'circuit' && d.currentSet < d.sets.length) {
-                <button class="btn primary xl" type="button" (click)="nextSet()">Seria {{ d.currentSet + 1 }} <app-icon name="arrow-right" /></button>
+                <button class="btn primary xl" type="button" (click)="nextSet()">{{ peUnits().set }} {{ d.currentSet + 1 }} <app-icon name="arrow-right" /></button>
               } @else {
                 <button class="btn primary xl" type="button" (click)="next()">{{ isLastStep() ? 'Zakończ trening' : 'Dalej' }} <app-icon name="arrow-right" /></button>
               }

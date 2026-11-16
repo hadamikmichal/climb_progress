@@ -269,7 +269,7 @@ export class WorkoutDetail {
   protected addRoute(f: CompletedWorkout) {
     const last = f.routes[f.routes.length - 1];
     const r: RouteLog = {
-      id: uid(), order: f.routes.length + 1, setIndex: last?.setIndex ?? (f.type === 'C' ? 1 : 0), grade: last?.grade ?? '6a', lengthM: 13,
+      id: uid(), order: f.routes.length + 1, setIndex: last?.setIndex ?? (f.type === 'C' ? 1 : 0), grade: last?.grade ?? (f.type === 'C' ? f.prescription.powerEndurance.grade : f.type === 'B' ? f.prescription.aerobic.grade : f.prescription.hardRoutes.gradeFrom), lengthM: last?.lengthM ?? 13,
       completed: true, pump: null, rpe: null, notes: '', timestamp: now(),
     };
     f.routes = [...f.routes, r];

@@ -9,7 +9,7 @@ import { buildExport, parseImport } from './backup';
 import { addDays, formatDate, today } from '../logic/dates';
 import { now, uid } from '../logic/ids';
 import {
-  baselinePlanned, comparePlanned, createCycle, cycleWeek, generateCyclePlan, isDeloadWeek, migrateLegacyPlanned, redistributeFuture,
+  BASELINE_DAY_GAP, baselinePlanned, comparePlanned, createCycle, cycleWeek, generateCyclePlan, isDeloadWeek, migrateLegacyPlanned, redistributeFuture,
   stageLabel, weekStart,
 } from '../logic/plan';
 import {
@@ -18,7 +18,13 @@ import {
 import { KIND_LABELS, PART_LABELS } from '../logic/assessment/labels';
 import { evaluateProgression, HistoryEntry, ProgressionDecision, Track, TRACK_HOST, TRACKS } from '../logic/progression';
 import { decideMissed, isPending, MissedDecision, slotViolations } from '../logic/scheduling';
-import { evaluateReadiness, readinessFor } from '../logic/readiness';
+import { evaluateReadiness, readinessFor, recoveryFromReadiness } from '../logic/readiness';
+import {
+  applyCalibrationRun, candidateTest, evaluateCalibration, initialCalibration, levelForGrade, resolveIntake, retestTooEasy, TEST_LEVELS,
+} from '../logic/adaptive/calibration';
+import { assessAbilities } from '../logic/adaptive/abilities';
+import { prescribe, summarizeReport } from '../logic/adaptive/prescription';
+import { benchmarkFromClimbing, protocolDiff, recentWorkouts, returningAfterBreak, testRouteFor } from '../logic/adaptive/engine';
 import { generateWeeklyReport } from '../logic/reports';
 import { defaultProfile, initialParams, isHeavy, isTest, SKIP_REASON_LABELS, TYPE_SHORT } from '../logic/templates';
 
@@ -176,10 +182,22 @@ export class AppStore {
     // Nowy cykl startuje od parametrów, na których zakończył się poprzedni
     const params = prevCycle && (prevCycle.status === 'completed' || prevCycle.status === 'archived') ? prevCycle.params : initialParams(this.profile());
     const cycle = createCycle(`Cykl ${n}`, baselineDate, params, ts);
+    // Test dróg: zablokowany benchmark z poprzednich cykli albo kalibracja od kandydackiej trudności z wywiadu
+    const benchmark = this.cycles().map((c) => c.benchmark).filter((b) => !!b).sort((a, b) => (a!.lockedAt < b!.lockedAt ? 1 : -1))[0];
+    if (benchmark) {
+      cycle.benchmark = structuredClone(benchmark);
+      cycle.extraBenchmarks = structuredClone(prevCycle?.extraBenchmarks ?? []);
+      cycle.calibration = { status: 'confirmed', level: benchmark.level, grade: benchmark.grade, candidateReasons: ['Test bazowy z poprzedniego cyklu – parametry bez zmian.'], runs: [] };
+    } else {
+      cycle.calibration = initialCalibration(candidateTest(resolveIntake(this.profile())));
+    }
     const pw = baselinePlanned(cycle, ts);
+    const g = cycle.calibration.grade;
     const ev = this.event({
       cycleId: cycle.id, kind: 'plan', sourceIds: [cycle.id],
-      reason: `Rozpoczęto ${cycle.name}. Najpierw Baseline Test v1.0: dzień siłowy ${formatDate(pw[0].date)} i test 4 × 6a ${formatDate(pw[1].date)} (min. 48 h później), potem plan 6-tygodniowy.`,
+      reason: `Rozpoczęto ${cycle.name}. Najpierw Baseline Test v1.0: dzień siłowy ${formatDate(pw[0].date)} i test 4 × ${g} ${formatDate(pw[1].date)} (min. 48 h później), potem plan 6-tygodniowy. ${
+        benchmark ? 'Test dróg w zablokowanym protokole z poprzednich cykli.' : `Trudność testu: ${TEST_LEVELS[cycle.calibration.level].label} – ${cycle.calibration.candidateReasons.join(' ')}`
+      }`,
     });
     // Zamknięcie ewentualnego aktywnego cyklu
     const archived = this.cycles().filter((c) => c.status === 'baseline' || c.status === 'active').map((c) => ({ ...c, status: 'archived' as const, updatedAt: ts }));
@@ -194,17 +212,46 @@ export class AppStore {
     const c = this.cycle();
     if (!c) throw new Error('Brak aktywnego cyklu');
     const ts = now();
-    const items = generateCyclePlan(c, this.profile(), planStart, ts);
-    const cycle: TrainingCycle = { ...c, planStart, status: 'active', updatedAt: ts };
+    // Adaptive Engine v2: profile zdolności z Baseline Test + historii → dobór protokołów i parametrów
+    const { params, report } = this.prescriptionFor(c, ts);
+    const sized: TrainingCycle = { ...c, params, initialParams: structuredClone(params), abilities: report };
+    const items = generateCyclePlan(sized, this.profile(), planStart, ts);
+    const cycle: TrainingCycle = { ...sized, planStart, status: 'active', updatedAt: ts };
     const ev = this.event({
       cycleId: c.id, kind: 'plan',
       reason: `Wygenerowano plan ${c.weeks}-tygodniowy od ${formatDate(planStart)}: 3 jednostki tygodniowo, deload w tygodniu ${c.deloadWeeks.join(', ')}, test kontrolny po tygodniu ${c.controlTestAfterWeeks.join(', ')} i test końcowy po tygodniu ${c.weeks}.`,
       sourceIds: items.map((i) => i.id),
     });
-    await this.persist([{ store: 'cycles', put: [cycle] }, { store: 'planned', put: items }, { store: 'events', put: [ev] }]);
+    const evPlan = this.event({ cycleId: c.id, kind: 'plan', reason: `Dobór treningu: ${summarizeReport(report)} ${report.reasons.join(' ')}`, sourceIds: [report.sourceAssessmentId ?? c.id] });
+    await this.persist([{ store: 'cycles', put: [cycle] }, { store: 'planned', put: items }, { store: 'events', put: [ev, evPlan] }]);
     this.upsert(this.cycles, [cycle]);
     this.upsert(this.planned, items);
-    this.upsert(this.events, [ev]);
+    this.upsert(this.events, [ev, evPlan]);
+  }
+
+  /** Profile zdolności i dobór parametrów dla cyklu – czyste funkcje z core/logic/adaptive */
+  prescriptionFor(c: TrainingCycle, ts = now()) {
+    const intake = resolveIntake(this.profile());
+    const assessment = this.assessmentFor(c.id, 'BASELINE');
+    const ws = recentWorkouts(this.completed(), this.today());
+    const profiles = assessAbilities({ intake, assessment, workouts: ws });
+    return prescribe({
+      profiles, intake, assessment, testGrade: c.benchmark?.grade ?? (c.calibration?.status === 'confirmed' ? c.calibration.grade : null),
+      prev: c.params, recentWorkouts: ws, returningAfterBreak: returningAfterBreak(this.completed(), this.today()), ts,
+    });
+  }
+
+  /** Raport profili dla dowolnego testu (Baseline / Retest) – do widoku raportu */
+  abilityReportFor(a: Assessment) {
+    const c = this.cycles().find((x) => x.id === a.cycleId);
+    if (c?.abilities && c.abilities.sourceAssessmentId === a.id) return c.abilities;
+    const intake = resolveIntake(this.profile());
+    const ws = recentWorkouts(this.completed(), a.climbing?.date ?? a.strength?.date ?? this.today());
+    const profiles = assessAbilities({ intake, assessment: a, workouts: ws });
+    return prescribe({
+      profiles, intake, assessment: a, testGrade: c?.benchmark?.grade ?? a.climbing?.route.frenchGrade ?? null,
+      prev: c?.params ?? initialParams(this.profile()), recentWorkouts: ws, returningAfterBreak: false, ts: now(),
+    }).report;
   }
 
   async updateParams(params: TrainingParams, reason: string): Promise<void> {
@@ -242,6 +289,26 @@ export class AppStore {
     await this.persist([{ store: 'planned', put: [next] }, { store: 'events', put: [ev] }]);
     this.upsert(this.planned, [next]);
     this.upsert(this.events, [ev]);
+    await this.adaptAfterSkip(next);
+  }
+
+  /** Po pominięciu: kilka opuszczonych jednostek z rzędu → powrót z mniejszą objętością (reguła R7) */
+  private async adaptAfterSkip(p: PlannedWorkout): Promise<void> {
+    const c = this.cycles().find((x) => x.id === p.cycleId);
+    if (!c || isTest(p.type)) return;
+    let params = c.params;
+    const evs: AdaptationEvent[] = [];
+    for (const track of TRACKS[p.type as TrainingType]) {
+      const d = evaluateProgression(track, this.historyFor(c.id, track), params);
+      if (d.action !== 'reduce') continue;
+      params = d.params;
+      evs.push(this.event({ cycleId: c.id, kind: 'reduce', workoutType: p.type, parameter: d.parameter, from: d.from, to: d.to, reason: d.reason, sourceIds: d.sourceIds }));
+    }
+    if (!evs.length) return;
+    const nc = { ...c, params, updatedAt: now() };
+    await this.persist([{ store: 'cycles', put: [nc] }, { store: 'events', put: evs }]);
+    this.upsert(this.cycles, [nc]);
+    this.upsert(this.events, evs);
   }
 
   moveViolations(plannedId: string, date: ISODate): string[] {
@@ -352,7 +419,8 @@ export class AppStore {
     const decisions: ProgressionDecision[] = [];
     let params = c.params;
     for (const track of TRACKS[w.type]) {
-      const d = evaluateProgression(track, this.historyFor(c.id, track), params);
+      const recovery = recoveryFromReadiness(readinessFor(this.readiness(), w.date));
+      const d = evaluateProgression(track, this.historyFor(c.id, track), params, { recovery });
       params = d.params;
       decisions.push(d);
     }
@@ -509,7 +577,10 @@ export class AppStore {
     }
     if (part === 'climbing' && (!a.climbing || a.climbing.status === 'postponed')) {
       const attempts = kind === 'CONTROL' ? CONTROL_ROUTE_ATTEMPTS : BASELINE_ROUTE_ATTEMPTS;
-      a.climbing = newClimbingSession(this.today(), ts, a.strength?.readiness.bodyMassKg ?? mass, attempts, ref?.climbing?.route ?? null);
+      const c = this.cycles().find((x) => x.id === p.cycleId);
+      const prevRoute = a.calibrationRuns?.at(-1)?.route ?? ref?.climbing?.route ?? null;
+      a.climbing = newClimbingSession(this.today(), ts, a.strength?.readiness.bodyMassKg ?? mass, attempts, testRouteFor(c?.benchmark, c?.calibration, prevRoute));
+      if (c?.benchmark) a.climbing.restSeconds = c.benchmark.restSeconds;
     }
     await this.saveAssessment(a);
     return this.getAssessment(a.id)!;
@@ -521,26 +592,41 @@ export class AppStore {
    */
   async saveAssessment(input: Assessment): Promise<void> {
     const ts = now();
-    const prevStatus = this.getAssessment(input.id)?.status;
+    const prev = this.getAssessment(input.id);
+    const prevStatus = prev?.status;
     const a: Assessment = { ...input, updatedAt: ts };
+    const evs: AdaptationEvent[] = [];
+    const plannedPut: PlannedWorkout[] = [];
+    let c = this.cycles().find((x) => x.id === a.cycleId);
+    let cycleChanged = false;
+
+    // Adaptive Engine v2 – po zakończeniu sesji testu dróg
+    if (c && a.climbing?.status === 'completed' && prev?.climbing?.status !== 'completed') {
+      const r = this.afterClimbingTest(a, c, ts);
+      c = r.cycle;
+      cycleChanged = r.changed;
+      evs.push(...r.events);
+      plannedPut.push(...r.planned);
+    }
+
     a.status = assessmentStatus(a);
     if (a.status === 'completed' && !a.completedAt) a.completedAt = ts;
     if (a.status !== 'completed') a.completedAt = null;
 
     const ops: { store: StoreName; put?: unknown[]; del?: string[] }[] = [{ store: 'assessments', put: [a] }];
-    const plannedPut: PlannedWorkout[] = [];
+    const calibrationPlanned = new Set((c?.calibration?.runs ?? []).map((r) => r.plannedId).filter((x): x is string => !!x));
     for (const pid of a.plannedIds) {
       const p = this.getPlanned(pid);
       if (!p || !p.part) continue;
-      const done = (p.part === 'strength' ? a.strength : a.climbing)?.status === 'completed';
+      // sesje kalibracyjne zostają wykonane, choć ich dane przeniesiono do calibrationRuns
+      const done = calibrationPlanned.has(p.id) || (p.part === 'strength' ? a.strength : a.climbing)?.status === 'completed';
       if (done && p.status !== 'done') plannedPut.push({ ...p, status: 'done', completedWorkoutId: a.id, updatedAt: ts });
       if (!done && p.status === 'done') plannedPut.push({ ...p, status: p.moves.length ? 'moved' : 'planned', completedWorkoutId: undefined, updatedAt: ts });
     }
     if (plannedPut.length) ops.push({ store: 'planned', put: plannedPut });
 
-    const evs: AdaptationEvent[] = [];
-    let nc: TrainingCycle | null = null;
-    const c = this.cycles().find((x) => x.id === a.cycleId);
+    let nc: TrainingCycle | null = cycleChanged && c ? c : null;
+    if (nc) ops.push({ store: 'cycles', put: [nc] });
     if (a.status === 'completed' && prevStatus !== 'completed') {
       evs.push(this.event({ cycleId: a.cycleId, kind: 'plan', reason: `${KIND_LABELS[a.kind]} zakończony – raport z wynikami jest dostępny w zakładce Progres.`, sourceIds: [a.id] }));
       if (c && a.kind === 'FINAL' && c.status === 'active') {
@@ -558,6 +644,81 @@ export class AppStore {
     if (plannedPut.length) this.upsert(this.planned, plannedPut);
     if (evs.length) this.upsert(this.events, evs);
     if (nc) this.upsert(this.cycles, [nc]);
+  }
+
+  /**
+   * Decyzje po zakończonej sesji testu dróg (mutuje `a`):
+   *  - Baseline w kalibracji: ocena trafności trudności; gdy trzeba ją zmienić, dane sesji trafiają do
+   *    calibrationRuns, Baseline pozostaje oczekujący i planowana jest kolejna sesja (jedna trudność na sesję),
+   *  - potwierdzona kalibracja: blokada protokołu testu (benchmark),
+   *  - retest / test pośredni: jawne oznaczenie każdej zmiany względem benchmarku,
+   *  - zbyt łatwy retest: osobny benchmark na wyższym poziomie (oryginał bez zmian).
+   */
+  private afterClimbingTest(a: Assessment, c: TrainingCycle, ts: string): { cycle: TrainingCycle; changed: boolean; events: AdaptationEvent[]; planned: PlannedWorkout[] } {
+    const climb = a.climbing!;
+    const events: AdaptationEvent[] = [];
+    const planned: PlannedWorkout[] = [];
+    let cycle = c;
+    let changed = false;
+
+    if (a.kind === 'BASELINE' && !c.benchmark && c.calibration?.status === 'pending') {
+      const v = evaluateCalibration(climb);
+      const runIds = new Set(c.calibration.runs.map((r) => r.plannedId));
+      const plannedId = a.plannedIds.find((id) => this.getPlanned(id)?.part === 'climbing' && !runIds.has(id)) ?? null;
+      const state = applyCalibrationRun(c.calibration, { date: climb.date, grade: climb.route.frenchGrade, outcome: v.outcome, reasons: v.reasons, plannedId });
+      cycle = { ...c, calibration: state, updatedAt: ts };
+      changed = true;
+      if (state.status === 'confirmed' && state.grade === climb.route.frenchGrade) {
+        cycle.benchmark = benchmarkFromClimbing(climb, uid(), a.id, ts, state.level);
+        events.push(this.event({
+          cycleId: c.id, kind: 'plan', sourceIds: [a.id],
+          reason: `Kalibracja testu dróg zakończona: ${climb.plannedAttempts} × ${climb.route.frenchGrade} (${TEST_LEVELS[state.level].label}). ${v.reasons.join(' ')} Protokół zablokowany dla retestów: droga, styl ściany, asekuracja, długość, odpoczynek ${climb.restSeconds / 60} min i kolejność prób.`,
+        }));
+      } else {
+        // Baseline oczekujący – dane tej sesji zachowane, test dróg powtarzany na nowej trudności w kolejnej sesji
+        a.calibrationRuns = [...(a.calibrationRuns ?? []), climb];
+        a.climbing = null;
+        const date = addDays(this.today(), BASELINE_DAY_GAP);
+        const next: PlannedWorkout = {
+          id: uid(), cycleId: c.id, type: 'BASELINE', week: 0, date, originalDate: date, order: 0, part: 'climbing', status: 'planned', moves: [], createdAt: ts, updatedAt: ts,
+        };
+        planned.push(next);
+        if (state.status === 'confirmed') cycle.calibration = { ...state, status: 'pending' };
+        events.push(this.event({
+          cycleId: c.id, kind: 'plan', sourceIds: [a.id, next.id],
+          reason: `Baseline oczekujący – kalibracja testu dróg: ${v.reasons.join(' ')} Kolejna sesja ${formatDate(date)}: ${climb.plannedAttempts} × ${state.grade}. Jedna trudność na sesję – bez kilku maksymalnych testów jednego dnia.`,
+        }));
+      }
+      return { cycle, changed, events, planned };
+    }
+
+    const bm = c.benchmark;
+    if (bm) {
+      const diff = protocolDiff(bm, climb);
+      if (diff.length) {
+        const text = diff.map((d) => `${d.label}: ${d.from} → ${d.to}`).join(', ');
+        if (!climb.protocolChange) climb.protocolChange = { reason: 'zmiana wprowadzona podczas testu', fields: diff.map((d) => d.field) };
+        events.push(this.event({
+          cycleId: c.id, kind: 'plan', sourceIds: [a.id],
+          reason: `Zmiana protokołu testu względem benchmarku (${text}) – powód: ${climb.protocolChange.reason}. Wynik oznaczony jako mniej porównywalny; benchmark bez zmian.`,
+        }));
+      }
+      if (a.kind === 'FINAL' && !diff.some((d) => d.field === 'grade')) {
+        const easy = retestTooEasy(climb);
+        const exists = (c.extraBenchmarks ?? []).some((x) => x.grade === easy.suggestedGrade);
+        if (easy.tooEasy && easy.suggestedGrade && !exists) {
+          const extra = { ...benchmarkFromClimbing(climb, uid(), a.id, ts, levelForGrade(easy.suggestedGrade)), grade: easy.suggestedGrade, routeName: '', note: easy.reason! };
+          cycle = { ...c, extraBenchmarks: [...(c.extraBenchmarks ?? []), extra], updatedAt: ts };
+          changed = true;
+          events.push(this.event({ cycleId: c.id, kind: 'plan', sourceIds: [a.id], reason: easy.reason! }));
+        }
+      }
+    } else if (a.kind === 'BASELINE' && !c.calibration) {
+      // Cykl sprzed v2 – blokujemy protokół z wykonanego testu, bez kalibracji
+      cycle = { ...c, benchmark: benchmarkFromClimbing(climb, uid(), a.id, ts), updatedAt: ts };
+      changed = true;
+    }
+    return { cycle, changed, events, planned };
   }
 
   /** Przełożenie sesji (np. ból) – zapisane dane sesji zostają, jednostkę przesuwa się w Planie */

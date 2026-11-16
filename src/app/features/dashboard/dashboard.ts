@@ -5,7 +5,7 @@ import { AppStore } from '../../core/data/store';
 import { PlannedWorkout, Weekday } from '../../core/models/models';
 import { addDays, diffDays, formatDate, startOfWeek, WEEKDAY_SHORT, weekdayOf } from '../../core/logic/dates';
 import { prescriptionFor, suggestPlanStart, isDeloadWeek } from '../../core/logic/plan';
-import { prescriptionLines, plannedShortName } from '../../core/logic/describe';
+import { testGradeOf, prescriptionLines, plannedShortName } from '../../core/logic/describe';
 import { isPending } from '../../core/logic/scheduling';
 import { summarizeTest } from '../../core/logic/reports';
 import { effectiveLoadKg, formatLoad, sessionMaxPump, sessionRpe } from '../../core/logic/progression';
@@ -19,6 +19,8 @@ import { Icon } from '../../shared/icon';
 import { MissedSheet } from '../plan/missed-sheet';
 import { MoveSheet } from '../plan/move-sheet';
 import { PlannedCard } from '../plan/planned-card';
+import { AbilityReportView } from '../assessment/ability-report';
+import { candidateTest, resolveIntake, TEST_LEVELS } from '../../core/logic/adaptive/calibration';
 
 /** Nagłówek redakcyjny dla etapu cyklu – jedna myśl, nie statystyka */
 const HEADLINES: Record<string, [string, string]> = {
@@ -34,7 +36,7 @@ const HEADLINES: Record<string, [string, string]> = {
 /** Dziś – odpowiedź na pytanie „co dalej?” */
 @Component({
   selector: 'app-dashboard',
-  imports: [RouterLink, FormsModule, DatePlPipe, Icon, MissedSheet, MoveSheet, PlannedCard],
+  imports: [RouterLink, FormsModule, DatePlPipe, Icon, MissedSheet, MoveSheet, PlannedCard, AbilityReportView],
   templateUrl: './dashboard.html',
   styleUrl: './dashboard.scss',
 })
@@ -100,6 +102,20 @@ export class Dashboard {
     const p = this.store.profile().trainingDays;
     return end ? suggestPlanStart(end > this.store.today() ? end : this.store.today(), Math.min(p.A, p.B, p.C) as Weekday) : '';
   });
+  protected readonly levels = TEST_LEVELS;
+  /** Kandydacka trudność testu dróg dla nowego cyklu – z wywiadu w Profilu */
+  protected readonly startCandidate = computed(() => {
+    const bm = this.store.cycles().map((c) => c.benchmark).find((b) => !!b);
+    const cand = candidateTest(resolveIntake(this.store.profile()));
+    return bm ? { ...cand, grade: bm.grade, level: bm.level } : cand;
+  });
+  /** Podgląd doboru planu po Baseline Test – te same funkcje, które zastosuje „Generuj plan” */
+  protected readonly planPreview = computed(() => {
+    const c = this.cycle();
+    if (!c || c.status !== 'baseline' || !this.baselineDone()) return null;
+    this.store.completed();
+    return this.store.prescriptionFor(c);
+  });
   protected readonly baselineItems = computed(() => this.store.cyclePlanned().filter((p) => p.type === 'BASELINE'));
 
   /* ---------------- następna sesja ---------------- */
@@ -116,7 +132,7 @@ export class Dashboard {
     const a = isTest(p.type) && p.part ? this.store.assessmentFor(p.cycleId, p.type) : null;
     const partState = a ? (p.part === 'strength' ? a.strength : a.climbing)?.status : null;
     return {
-      p, t, lines: prescriptionLines(p.type, pr.params, p.part), deload: !isTest(p.type) && pr.deload,
+      p, t, lines: prescriptionLines(p.type, pr.params, p.part, testGradeOf(c)), deload: !isTest(p.type) && pr.deload,
       parts, prev, prevRpe: prev ? sessionRpe(prev) : null, prevPump: prev ? sessionMaxPump(prev) : null,
       startLink: isTest(p.type) ? [p.part ? '/assessment/run' : '/test', p.id] : ['/session', p.id],
       resumable: !!this.store.getDraft(p.id) || partState === 'in_progress',

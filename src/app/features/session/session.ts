@@ -1,8 +1,10 @@
+import { explainSession } from '../../core/logic/adaptive/explain';
+import { PE_PROTOCOLS, protocolOf } from '../../core/logic/adaptive/protocols';
 import { Component, computed, DestroyRef, effect, inject, input, signal, untracked } from '@angular/core';
 import { Router, RouterLink } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 import { AppStore } from '../../core/data/store';
-import { AscentStyle, CompletedWorkout, Exercise, GripPosition } from '../../core/models/models';
+import { AscentStyle, CompletedWorkout, Exercise, GripPosition, TrainingType } from '../../core/models/models';
 import { easyParams, prescriptionFor } from '../../core/logic/plan';
 import { prescriptionLines } from '../../core/logic/describe';
 import { assessSession, formatLoad, ProgressionDecision, SessionAssessment } from '../../core/logic/progression';
@@ -79,6 +81,26 @@ export class SessionPage implements LeaveGuarded {
     const p = this.planned();
     const pr = this.presc();
     return p && pr ? prescriptionLines(p.type, pr.params) : [];
+  });
+  /** Dlaczego ten trening, aktualna trudność, cel, co poprawić i dlaczego bez zwiększenia */
+  protected readonly explain = computed(() => {
+    const c = this.cycle();
+    const p = this.planned();
+    if (!c || !p || isTest(p.type)) return null;
+    return explainSession(p.type as TrainingType, c, this.store.events());
+  });
+  /** Nazwy jednostek obwodu zależne od protokołu (seria/droga, runda/problem, interwał) */
+  protected readonly peUnits = computed(() => {
+    const pe = this.draft()?.params.powerEndurance ?? this.cycle()?.params.powerEndurance;
+    const proto = pe ? protocolOf(pe) : 'rope_3x3';
+    const def = PE_PROTOCOLS[proto];
+    const round = def.setLabel === 'runda';
+    const unit = def.unit.one.charAt(0).toUpperCase() + def.unit.one.slice(1);
+    let hint = '';
+    if (proto === 'route_intervals') hint = `Wspinaj się ${pe?.workSec ?? 120} s w ciągłym ruchu, potem odpoczynek ${pe?.restBetweenSetsMin} min. Odznacz interwał jako ukończony, jeśli utrzymałeś czas bez odpadnięcia.`;
+    if (proto === 'boulder_4x4') hint = `${pe?.routesPerSet} problemy jeden po drugim bez odpoczynku${pe?.movesPerProblem ? `, ok. ${pe.movesPerProblem} przechwytów każdy` : ''}. Trudność w skali Font.`;
+    if (proto === 'linked_routes') hint = `${pe?.routesPerSet} drogi łączone: opuszczenie i od razu kolejna droga, bez długiego odpoczynku.`;
+    return { set: round ? 'Runda' : 'Seria', setLoc: round ? 'rundzie' : 'serii', setGen: round ? 'rundy' : 'serii', unit, hint };
   });
   protected readonly assessment = this.store.todayAssessment;
   protected readonly elapsed = computed(() => (this.draft() ? elapsedMin(this.draft()!.startedAt, this.nowMs()) : 0));
@@ -356,7 +378,8 @@ export class SessionPage implements LeaveGuarded {
       if (x.type === 'C') {
         const inSet = x.routes.filter((y) => y.setIndex === x.currentSet);
         const left = inSet.some((y) => y.state === 'todo');
-        if (left) startRest(x, 'Odpoczynek między drogami', x.params.powerEndurance.restBetweenRoutesMin * 60, now());
+        // Boulder 4 × 4 i drogi łączone: kolejna jednostka bez odpoczynku
+        if (left && x.params.powerEndurance.restBetweenRoutesMin > 0) startRest(x, 'Odpoczynek między drogami', x.params.powerEndurance.restBetweenRoutesMin * 60, now());
       }
     });
   }

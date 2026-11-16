@@ -67,7 +67,7 @@ const LABELS: Record<FigureKind, string> = {
             @for (y of [24, 42, 60, 78, 96]; track y) { <circle [attr.cx]="108 - (y % 3) * 4" [attr.cy]="y" r="3" fill="currentColor" stroke="none" /> }
             <circle cx="108" cy="12" r="4" class="acc" stroke="none" />
             <text x="52" y="40">~13 m</text>
-            <text x="52" y="54">6a × 4</text>
+            <text x="52" y="54">× 4</text>
             <text x="52" y="68">rest 3:00</text>
           }
           @case ('recovery') {

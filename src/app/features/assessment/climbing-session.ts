@@ -17,7 +17,7 @@ import { BaselineSteps, stepNumber } from './baseline-steps';
 type Mutator = (a: Assessment) => void;
 type Step = 'readiness' | 'warmup' | 'route' | 'test';
 
-/** Dzień 2 – Climbing Performance: 4 × 6a (lub 3 × 6a w teście pośrednim) + Recovery Curve */
+/** Dzień 2 – Climbing Performance: 4 próby (3 w teście pośrednim) na trudności z kalibracji / benchmarku + Recovery Curve */
 @Component({
   selector: 'app-climbing-session',
   imports: [FormsModule, Scale, YesNo, LiveClock, TestReadinessForm, TestFigure, BaselineSteps],
@@ -29,6 +29,10 @@ export class ClimbingSession {
   readonly assessment = input.required<Assessment>();
   /** Trasa z testu odniesienia (Baseline) – przy retestach ta sama droga */
   readonly referenceRoute = input<TestRoute | null>(null);
+  /** Trudność wymagana przez kalibrację lub zablokowany benchmark */
+  readonly targetGrade = input<string | null>(null);
+  readonly calibrating = input(false);
+  readonly benchmarkLocked = input(false);
   readonly update = output<Mutator>();
   readonly postpone = output<string>();
 
@@ -172,6 +176,13 @@ export class ClimbingSession {
         const r = c.route;
         c.routeChanged = ref.routeId ? ref.routeId !== r.routeId : ref.name.trim().toLowerCase() !== r.name.trim().toLowerCase();
       }
+    });
+  }
+
+  /** Jawne oznaczenie zmiany protokołu względem benchmarku – z powodem podanym przez użytkownika */
+  protected setProtocolReason(reason: string) {
+    this.mutate((c) => {
+      c.protocolChange = reason.trim() ? { reason: reason.trim(), fields: ['grade'] } : null;
     });
   }
 

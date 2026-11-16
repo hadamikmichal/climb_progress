@@ -46,6 +46,25 @@
       </div>
     }
 
+    @if (calibration(); as cal) {
+      <section class="r-sec full">
+        <header class="r-sec-head"><span class="num">≈</span><h2>Kalibracja testu dróg</h2><span class="eyebrow">{{ cal.status === 'confirmed' ? 'potwierdzona' : 'Baseline oczekujący' }}</span></header>
+        <ol class="cal-runs">
+          @for (r of cal.runs; track $index) {
+            <li><span class="mono">{{ r.date | datePl }} · 4 × {{ r.grade }}</span><strong>{{ outcomeLabels[r.outcome] }}</strong><small class="muted">{{ r.reasons.join(' ') }}</small></li>
+          }
+        </ol>
+        @if (cal.status === 'pending') { <p class="note warn">Kolejna sesja testu dróg: <strong class="mono">4 × {{ cal.grade }}</strong>. Raport będzie kompletny po potwierdzeniu trudności.</p> }
+      </section>
+    }
+
+    @if (abilities(); as ab) {
+      <section class="r-sec full">
+        <header class="r-sec-head"><span class="num">◆</span><h2>Profil zdolności i priorytety</h2><span class="eyebrow">dobór treningu</span></header>
+        <app-ability-report [report]="ab" />
+      </section>
+    }
+
     <div class="r-cols">
       <!-- =============== DZIEŃ 1 =============== -->
       @if (s && t.strength) {

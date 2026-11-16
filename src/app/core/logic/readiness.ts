@@ -72,3 +72,19 @@ export function readinessScore(c: ReadinessCheck): number {
   if (c.fingerPain || c.elbowShoulderPain || c.unusualFatigue) s = Math.min(s, 30);
   return s;
 }
+
+/**
+ * Regeneracja dla silnika progresji: progresja jest blokowana, gdy w dniu sesji zgłoszono ból,
+ * nietypowe zmęczenie albo obniżoną gotowość. Brak oceny gotowości = brak przeciwwskazań.
+ */
+export function recoveryFromReadiness(c: ReadinessCheck | null): { ok: boolean; reason: string } {
+  if (!c) return { ok: true, reason: 'brak oceny gotowości' };
+  const issues: string[] = [];
+  if (c.fingerPain) issues.push('zgłoszony ból palców');
+  if (c.elbowShoulderPain) issues.push('zgłoszony ból łokci lub barków');
+  if (c.unusualFatigue) issues.push('nietypowe zmęczenie');
+  if (c.fatigue >= 4) issues.push(`zmęczenie ${c.fatigue}/5`);
+  if (c.wellbeing <= 2) issues.push(`samopoczucie ${c.wellbeing}/5`);
+  if (c.sleep <= 2) issues.push(`sen ${c.sleep}/5`);
+  return issues.length ? { ok: false, reason: issues.join(', ') } : { ok: true, reason: 'gotowość w normie' };
+}

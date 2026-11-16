@@ -38,6 +38,8 @@ export interface UserProfile {
   /** Przypisanie typów treningów do dni tygodnia */
   trainingDays: Record<TrainingType, Weekday>;
   hangboard: HangboardSetup;
+  /** Wywiad do kalibracji testu (Adaptive Engine v2); brak = wartości wyprowadzane z `grade` */
+  intake?: ClimberIntake;
   createdAt: Timestamp;
   updatedAt: Timestamp;
 }
@@ -64,7 +66,15 @@ export interface HangboardParams {
   restSec: number;
   addedKg: number;
   assistKg: number;
+  /** Max Hangs (domyślnie) lub Repeaters – osobne protokoły, Repeaters wyłącznie z wyboru użytkownika */
+  protocol?: FingerProtocol;
+  /** Repeaters: czas zwisu / przerwy w powtórzeniu i liczba powtórzeń w serii */
+  repeaterOnSec?: number;
+  repeaterOffSec?: number;
+  repeaterReps?: number;
 }
+
+export type FingerProtocol = 'max_hangs' | 'repeaters';
 
 export interface HardRoutesParams {
   gradeFrom: string;
@@ -77,7 +87,18 @@ export interface AerobicParams {
   grade: string;
   restMin: number;
   targetMaxPump: number;
+  /** Górna granica trudności dróg tlenowych wynikająca z profilu (brak = bez limitu) */
+  gradeCap?: string;
 }
+
+/**
+ * Protokoły wytrzymałości siłowej. Każdy jest odwzorowany na kształt serie × jednostki:
+ * - rope_NxM: serie × drogi w serii,
+ * - boulder_4x4: rundy × problemy (wycena Font),
+ * - route_intervals: rundy × 1 interwał (czas wspinania `workSec`, odpoczynek `restBetweenSetsMin`),
+ * - linked_routes: serie × drogi łączone bez długiego odpoczynku.
+ */
+export type PeProtocol = 'rope_2x3' | 'rope_3x3' | 'rope_4x4' | 'boulder_4x4' | 'route_intervals' | 'linked_routes';
 
 export interface PowerEnduranceParams {
   sets: number;
@@ -85,6 +106,14 @@ export interface PowerEnduranceParams {
   grade: string;
   restBetweenRoutesMin: number;
   restBetweenSetsMin: number;
+  /** Brak = wyprowadzany z kształtu (2 × 3 / 3 × 3 / 4 × 4) – dane sprzed v2 */
+  protocol?: PeProtocol;
+  /** Interwały: czas wspinania w jednej rundzie (s) */
+  workSec?: number;
+  /** Boulder 4 × 4: orientacyjna liczba przechwytów w problemie */
+  movesPerProblem?: number;
+  /** Górna granica trudności wynikająca z profilu zdolności (brak = bez limitu) */
+  gradeCap?: string;
 }
 
 export interface TrainingParams {
@@ -113,6 +142,91 @@ export interface TrainingCycle {
   params: TrainingParams;
   /** Parametry na starcie cyklu – do porównań */
   initialParams: TrainingParams;
+  /** Kalibracja trudności testu dróg (Baseline) – może wymagać kolejnej sesji */
+  calibration?: CalibrationState;
+  /** Zablokowany protokół testu dróg – przenoszony do kolejnych cykli bez zmian */
+  benchmark?: BenchmarkProtocol;
+  /** Dodatkowe testy na wyższym poziomie (gdy test bazowy stał się zbyt łatwy) */
+  extraBenchmarks?: BenchmarkProtocol[];
+  /** Profile zdolności i priorytety wyliczone po Baseline Test – podstawa doboru planu */
+  abilities?: AbilityReport;
+}
+
+/* ---------------- Profile zdolności i kalibracja ---------------- */
+
+export type AbilityKey = 'finger' | 'powerEndurance' | 'aerobic';
+/** Wewnętrzna klasyfikacja programu – nie jest oficjalną oceną sportową */
+export type AbilityStatus = 'underdeveloped' | 'developing' | 'established' | 'advanced';
+
+export interface AbilityProfile {
+  key: AbilityKey;
+  status: AbilityStatus;
+  /** Wynik 0–1 w obrębie skali (rozstrzyga remisy statusów) */
+  score: number;
+  /** Ile danych wejściowych było dostępnych */
+  confidence: 'low' | 'medium' | 'high';
+  /** Fakty, z których wynika status – zawsze widoczne dla użytkownika */
+  evidence: string[];
+  /** Czego brakowało do pełnej oceny */
+  missing: string[];
+}
+
+export interface AbilityReport {
+  generatedAt: Timestamp;
+  sourceAssessmentId: string | null;
+  profiles: Record<AbilityKey, AbilityProfile>;
+  strongest: AbilityKey;
+  mainLimitation: AbilityKey;
+  secondaryLimitation: AbilityKey;
+  /** Priorytet treningowy – zdanie dla użytkownika */
+  priority: string;
+  recommendedProtocol: PeProtocol;
+  fingerProtocol: FingerProtocol;
+  /** Uzasadnienie doboru protokołów i parametrów */
+  reasons: string[];
+}
+
+export type TestLevel = 'foundation' | 'intermediate' | 'intermediate_plus' | 'advanced' | 'performance';
+export type CalibrationOutcome = 'confirmed' | 'raise' | 'lower' | 'hold';
+
+export interface CalibrationRun {
+  date: ISODate;
+  grade: string;
+  outcome: CalibrationOutcome;
+  reasons: string[];
+  /** Zaplanowana jednostka, w której wykonano tę próbę kalibracyjną */
+  plannedId: string | null;
+}
+
+export interface CalibrationState {
+  status: 'pending' | 'confirmed';
+  level: TestLevel;
+  /** Trudność na kolejną (lub bieżącą) sesję testu dróg */
+  grade: string;
+  /** Uzasadnienie trudności kandydackiej z wywiadu */
+  candidateReasons: string[];
+  runs: CalibrationRun[];
+}
+
+export interface BenchmarkProtocol {
+  id: string;
+  level: TestLevel;
+  grade: string;
+  routeName: string;
+  location: string;
+  wallStyle: import('./assessment').WallStyle;
+  /** Sposób asekuracji */
+  climbingStyle: import('./assessment').ClimbingStyle;
+  heightMeters: number;
+  restSeconds: number;
+  /** Liczba prób w ustalonej kolejności na tej samej drodze */
+  attempts: number;
+  lockedAt: Timestamp;
+  sourceAssessmentId: string | null;
+  /** Jawne zmiany protokołu – każda z powodem */
+  changes: { at: Timestamp; field: string; from: string; to: string; reason: string }[];
+  /** Dla testów dodatkowych: powód dodania */
+  note?: string;
 }
 
 /* ---------------- Szablony ---------------- */
@@ -383,4 +497,27 @@ export interface AppData {
   reports: WeeklyReport[];
   drafts: SessionDraft[];
   assessments: Assessment[];
+}
+
+/* ---------------- Adaptive Training Engine v2 ---------------- */
+
+/** Charakterystyczny styl wspinania deklarowany przez użytkownika */
+export type ClimbingStylePref = 'technical' | 'crimpy' | 'overhang' | 'endurance' | 'bouldery' | 'mixed';
+
+/**
+ * Wywiad przed Baseline Test – służy do dobrania kandydackiej trudności testu dróg.
+ * Wszystkie wyceny w skali francuskiej; boulder w skali Font (opcjonalnie).
+ */
+export interface ClimberIntake {
+  /** Najtrudniejsza droga RP */
+  rpGrade: string | null;
+  /** Najtrudniejsza droga OS / flash */
+  osGrade: string | null;
+  /** Trudność, na której użytkownik regularnie kończy kilka dróg w jednej sesji */
+  repeatableGrade: string | null;
+  style: ClimbingStylePref;
+  /** Orientacyjna liczba dróg w typowej sesji */
+  routesPerSession: number | null;
+  /** Najtrudniejszy boulder (Font) – tylko do doboru Boulder 4 × 4 */
+  boulderGrade: string | null;
 }

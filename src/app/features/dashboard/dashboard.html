@@ -23,7 +23,8 @@
     <section class="next topo">
       <span class="eyebrow">Krok 01 · {{ completedCycle() ? 'nowy cykl' : 'start' }}</span>
       <h2 class="next-title">Baseline Test v1.0</h2>
-      <p class="lead">Obowiązkowy punkt odniesienia przed cyklem. Dwie sesje w odstępie 48–72 h – <strong>dzień 1:</strong> siła palców, przyciągania, core i dead hang; <strong>dzień 2:</strong> 4 × 6a z pomiarem czasu, pompowania i regeneracji przedramion.</p>
+      <p class="lead">Obowiązkowy punkt odniesienia przed cyklem. Dwie sesje w odstępie 48–72 h – <strong>dzień 1:</strong> siła palców, przyciągania, core i dead hang; <strong>dzień 2:</strong> 4 × {{ startCandidate().grade }} z pomiarem czasu, pompowania i regeneracji przedramion.</p>
+      <p class="small"><span class="eyebrow">Trudność testu · </span><strong class="mono">{{ levels[startCandidate().level].label }} · 4 × {{ startCandidate().grade }}</strong> – dobrana do Twojego poziomu (propozycja startowa, potwierdzi ją kalibracja). Popraw dane w <a routerLink="/profile">Profilu → Poziom wspinaczkowy</a>.</p>
       <ol class="lines mono">
         <li>Potem 6 tygodni: A trudne drogi · B Max Hangs + tlenowa · C wytrzymałość siłowa</li>
         <li>Deload w tyg. 4 · test pośredni po 3 tyg. · pełny retest po 6</li>
@@ -41,6 +42,9 @@
       <section class="next topo">
         <span class="eyebrow">Baseline Test zakończony</span>
         <h2 class="next-title">Wygeneruj plan</h2>
+        @if (planPreview(); as pv) {
+          <app-ability-report [report]="pv.report" />
+        }
         @if (baselineSummary(); as b) {
           <dl class="scores">
             <div><dt>Palce</dt><dd class="mono">{{ b.s?.finger?.score ?? '–' }}<small>/10</small></dd></div>
@@ -65,6 +69,19 @@
       </section>
     } @else {
       <p class="lead">Baseline Test jest obowiązkowy przed pierwszym cyklem. Sesje możesz wykonać niezależnie – dzień 2 minimum 48 h po dniu 1.</p>
+      @if (c.calibration; as cal) {
+        @if (cal.runs.length && cal.status === 'pending') {
+          <div class="note warn">
+            <p><strong>Baseline oczekujący – kalibracja trudności testu dróg.</strong></p>
+            @for (r of cal.runs.at(-1)!.reasons; track r) { <p class="small">{{ r }}</p> }
+            <p class="small">Kolejna sesja: <strong class="mono">4 × {{ cal.grade }}</strong>. Jedna trudność na sesję – bez kilku maksymalnych testów jednego dnia.</p>
+          </div>
+        } @else if (c.benchmark; as bm) {
+          <p class="note info small">Test dróg w zablokowanym protokole: <strong class="mono">{{ bm.attempts }} × {{ bm.grade }}</strong>{{ bm.routeName ? ' · ' + bm.routeName : '' }}, odpoczynek {{ bm.restSeconds / 60 }} min – bez zmian względem poprzednich testów.</p>
+        } @else {
+          <p class="note info small">Trudność testu dróg: <strong class="mono">{{ levels[cal.level].label }} · 4 × {{ cal.grade }}</strong>. {{ cal.candidateReasons.join(' ') }}</p>
+        }
+      }
       <section class="section">
         <div class="section-head"><span class="eyebrow">Sesje testu</span>@if (baseline(); as b) { <a class="eyebrow link" [routerLink]="['/assessment', b.id]">Wyniki cząstkowe →</a> }</div>
         @for (p of baselineItems(); track p.id) { <app-planned-card [workout]="p" [hero]="p.status !== 'done'" /> }

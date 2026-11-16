@@ -192,6 +192,8 @@ export interface ClimbingAssessment {
   recoveryCurve: RecoveryMeasurement[];
   /** Droga inna niż w teście odniesienia – wynik mniej porównywalny */
   routeChanged: boolean;
+  /** Jawna zmiana protokołu względem zablokowanego benchmarku (trudność, droga, przerwa, liczba prób) */
+  protocolChange?: { reason: string; fields: string[] } | null;
   notes: string;
 }
 
@@ -209,6 +211,8 @@ export interface Assessment {
   climbing: ClimbingAssessment | null;
   /** Identyfikatory zaplanowanych jednostek realizowanych przez ten test */
   plannedIds: string[];
+  /** Sesje kalibracyjne testu dróg, po których trudność trzeba było zmienić (Baseline oczekujący) */
+  calibrationRuns?: ClimbingAssessment[];
   notes: string;
 }
 
