@@ -1,6 +1,6 @@
 # ClimbProgress
 
-Osobisty system planowania, realizacji i analizy treningu wspinaczkowego. Działa lokalnie w przeglądarce (bez konta i backendu), jest PWA – można go zainstalować na telefonie i używać na ścianie.
+System planowania, realizacji i analizy treningu wspinaczkowego. Konta email + hasło (Neon Auth), dane w bazie Neon Postgres z izolacją użytkowników (RLS), kopia w IndexedDB do pracy offline. PWA – można go zainstalować na telefonie i używać na ścianie.
 
 ## Uruchomienie
 
@@ -9,13 +9,18 @@ npm install        # .npmrc ustawia legacy-peer-deps (npm 10.9)
 npm start          # http://localhost:4200
 npm test           # testy jednostkowe (Vitest)
 npm run build      # build produkcyjny z service workerem → dist/climb_progress/browser
+npm run db:check   # weryfikacja Neon: Auth, Data API, tabele, RLS (wymaga .env.local)
+npm run db:migrate # migracje Drizzle (tylko lokalnie / CI)
+npm run test:rls   # testy izolacji danych między użytkownikami
 ```
+
+Konfiguracja Neon (Data API, Neon Auth, domeny, `.env.local`): **[docs/NEON_SETUP.md](docs/NEON_SETUP.md)**.
 
 Service worker działa tylko w buildzie produkcyjnym. Do testów widoków z inną datą: `?today=RRRR-MM-DD` w adresie.
 
 ## Stack
 
-Angular 21 (standalone components, sygnały, zoneless), TypeScript, SCSS (własne komponenty UI), Chart.js (ładowany leniwie), IndexedDB (własny wrapper bez zależności), `@angular/service-worker` + manifest PWA.
+Angular 21 (standalone components, sygnały, zoneless), TypeScript, SCSS (własne komponenty UI), Chart.js (ładowany leniwie), IndexedDB (własny wrapper bez zależności), `@angular/service-worker` + manifest PWA. Neon Postgres + Neon Auth (zarządzany Better Auth) + Neon Data API przez `@neon/neon-js`, Drizzle ORM (schemat, migracje, typy), Vercel.
 
 ## Architektura
 
@@ -29,12 +34,17 @@ src/app/
     progression.ts          ocena sesji i progresja (Przypadki A, C)
     readiness.ts            ocena gotowości (Przypadek D)
     reports.ts, stats.ts    raporty tygodniowe, porównanie testów, dane do wykresów
-  core/data/                IndexedDB, store na sygnałach, eksport/import JSON
+  core/data/                IndexedDB (osobna baza na konto + kolejka synchronizacji), store na sygnałach, eksport/import JSON
+  core/auth/                Neon Auth: AuthService, AuthStore (sygnały), authGuard / guestGuard
+  core/repositories/        Neon Data API: Profile, TrainingCycle, Workout, Route, Hangboard, Assessment, Readiness
+  core/sync/                mapowanie model ↔ wiersze, scalanie, SyncService (outbox, offline, ponowienia)
+  core/session/             cykl życia danych konta, import danych sprzed kont
+db/schema.ts                schemat PostgreSQL (Drizzle) z politykami RLS; migracje SQL w drizzle/
   features/                 dashboard, plan, session (aktywny trening), test, history, progress, profile, readiness
   shared/                   skala RPE/pompowania, tak/nie, timer, wykres, arkusz
 ```
 
-Każda mutacja jest najpierw zapisywana w IndexedDB, potem aktualizuje sygnał. Aktywny trening/test zapisuje się jako szkic po każdym dotknięciu – odświeżenie strony lub zamknięcie telefonu nie gubi danych.
+Każda mutacja jest najpierw zapisywana w IndexedDB (razem z wpisem w kolejce synchronizacji – w jednej transakcji), potem aktualizuje sygnał, a w tle trafia do Neon (upsert po UUID – bez duplikatów przy ponowieniach). Po zalogowaniu na nowym urządzeniu dane są pobierane z Neon; rekordy z niewysłanymi zmianami nie są nadpisywane. Aktywny trening/test zapisuje się jako szkic po każdym dotknięciu – odświeżenie strony lub zamknięcie telefonu nie gubi danych.
 
 ## Reguły adaptacji (deterministyczne, z wyjaśnieniem)
 
@@ -60,4 +70,4 @@ Każda decyzja trafia do historii zmian planu z uzasadnieniem (Plan → „Histo
 
 ## Kopia zapasowa
 
-Profil → Eksportuj JSON / Importuj JSON. Import zastępuje wszystkie dane, a plik jest walidowany przed zapisem.
+Profil → Eksportuj JSON / Importuj JSON. Import zastępuje wszystkie dane konta (także w Neon), a plik jest walidowany przed zapisem.

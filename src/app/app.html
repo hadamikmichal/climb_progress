@@ -1,4 +1,6 @@
-@if (store.error(); as err) {
+@if (authRoute()) {
+  <main class="auth-main"><router-outlet /></main>
+} @else if (store.error(); as err) {
   <div class="page"><div class="card danger"><h2>Błąd danych</h2><p>{{ err }}</p></div></div>
 } @else if (!store.ready()) {
   <div class="boot"><app-brand-mark [size]="40" /><span class="eyebrow">ClimbProgress</span></div>
@@ -7,7 +9,10 @@
     @if (!focusMode()) {
       <header class="topbar">
         <a routerLink="/" class="wordmark"><app-brand-mark [size]="24" /><span>CLIMBPROGRESS</span></a>
-        @if (weekLabel(); as w) { <span class="eyebrow kicker">{{ w }}</span> }
+        <span class="row">
+          @if (weekLabel(); as w) { <span class="eyebrow kicker">{{ w }}</span> }
+          <a routerLink="/profile" fragment="konto" class="sync-chip compact" [attr.data-state]="sync.state()" [attr.aria-label]="sync.label()" [attr.title]="sync.label()"><span class="dot" aria-hidden="true"></span>@if (sync.pending()) {<span class="num">{{ sync.pending() }}</span>}</a>
+        </span>
       </header>
       <nav class="nav" aria-label="Główna nawigacja">
         <div class="side-brand">
@@ -23,10 +28,22 @@
         <div class="side-foot">
           @if (weekLabel(); as w) { <span class="eyebrow">{{ w }}</span> }
           <span class="eyebrow">{{ store.stage() }}</span>
-          <span class="eyebrow faint">Dane lokalnie · offline</span>
+          <a routerLink="/profile" fragment="konto" class="sync-chip" [attr.data-state]="sync.state()" [attr.title]="sync.lastError() ?? ''"><span class="dot" aria-hidden="true"></span>{{ sync.label() }}</a>
         </div>
       </nav>
     }
     <main class="main"><router-outlet /></main>
   </div>
+  @if (legacy.prompt(); as lp) {
+    <app-sheet title="Lokalne dane treningowe" (closed)="legacy.skip()">
+      <div class="stack">
+        <p>Znaleźliśmy Twoje lokalne dane treningowe. Czy chcesz przypisać je do swojego konta?</p>
+        <p class="muted small">{{ lp.workouts }} treningów · {{ lp.assessments }} testów · {{ lp.cycles }} cykli · {{ lp.readiness }} ocen gotowości. Dane na tym urządzeniu nie zostaną usunięte.</p>
+        <div class="btn-row">
+          <button class="btn primary big" type="button" [disabled]="legacy.busy()" (click)="legacy.importNow()">{{ legacy.busy() ? 'Importowanie…' : 'Importuj dane' }}</button>
+          <button class="btn big" type="button" [disabled]="legacy.busy()" (click)="legacy.skip()">Pomiń</button>
+        </div>
+      </div>
+    </app-sheet>
+  }
 }

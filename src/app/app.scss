@@ -77,3 +77,19 @@
   }
   .side-foot .eyebrow:first-child { color: var(--color-text-primary); }
 }
+
+/* ---------- ekrany kont ---------- */
+.auth-main { min-height: 100vh; background: var(--color-background); color: var(--color-text-primary); }
+
+/* ---------- status synchronizacji ---------- */
+.sync-chip {
+  display: inline-flex; align-items: center; gap: 6px; text-decoration: none;
+  font-family: var(--font-mono); font-size: 0.6875rem; letter-spacing: 0.06em; text-transform: uppercase; color: var(--color-text-muted);
+}
+.sync-chip .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--color-primary); flex: none; }
+.sync-chip[data-state='syncing'] .dot { background: var(--color-text-secondary); animation: sync-pulse 1s ease-in-out infinite; }
+.sync-chip[data-state='offline'] .dot { background: var(--color-text-muted); }
+.sync-chip[data-state='error'] .dot, .sync-chip[data-state='auth'] .dot { background: var(--color-error); }
+.sync-chip.compact { min-width: 28px; min-height: 28px; justify-content: center; color: var(--color-text-secondary); }
+@keyframes sync-pulse { 50% { opacity: 0.35; } }
+@media (prefers-reduced-motion: reduce) { .sync-chip[data-state='syncing'] .dot { animation: none; } }
