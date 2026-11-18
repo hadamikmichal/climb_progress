@@ -2,14 +2,15 @@ import { ApplicationConfig, inject, isDevMode, provideAppInitializer, provideBro
 import { provideRouter, withComponentInputBinding, withInMemoryScrolling } from '@angular/router';
 import { provideServiceWorker } from '@angular/service-worker';
 import { routes } from './app.routes';
-import { AppStore } from './core/data/store';
+import { AuthStore } from './core/auth/auth.store';
 
 export const appConfig: ApplicationConfig = {
   providers: [
     provideBrowserGlobalErrorListeners(),
-    provideRouter(routes, withComponentInputBinding(), withInMemoryScrolling({ scrollPositionRestoration: 'top' })),
+    provideRouter(routes, withComponentInputBinding(), withInMemoryScrolling({ scrollPositionRestoration: 'top', anchorScrolling: 'enabled' })),
+    // Przywrócenie sesji Neon Auth startuje od razu; guardy czekają na wynik, dane konta otwiera authGuard
     provideAppInitializer(() => {
-      void inject(AppStore).init();
+      void inject(AuthStore).ready();
     }),
     provideServiceWorker('ngsw-worker.js', {
       enabled: !isDevMode(),

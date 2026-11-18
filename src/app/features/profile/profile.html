@@ -11,6 +11,8 @@
     <div class="note" [class.ok]="m.kind === 'ok'" [class.bad]="m.kind === 'bad'" [class.info]="m.kind === 'info'">{{ m.text }}</div>
   }
 
+  <app-account-section (exportRequested)="exportData()" />
+
   <section class="pf-sec">
     <header class="pf-head"><span class="num">01</span><h2>Zawodnik</h2></header>
     <div class="grid-2 grid-md-3">
@@ -186,13 +188,13 @@
   </section>
 
   <section class="pf-sec">
-    <header class="pf-head"><span class="num">07</span><h2>Dane i kopia zapasowa</h2><span class="eyebrow">offline · IndexedDB</span></header>
-    <p class="muted">Dane są przechowywane wyłącznie lokalnie w tej przeglądarce (IndexedDB). Regularnie eksportuj kopię do pliku JSON.</p>
+    <header class="pf-head"><span class="num">07</span><h2>Dane i kopia zapasowa</h2><span class="eyebrow">Neon · IndexedDB</span></header>
+    <p class="muted">Dane są zapisywane w bazie Twojego konta (Neon) i w kopii na tym urządzeniu (IndexedDB) do pracy offline. Import pliku JSON zastępuje dane konta – także w bazie.</p>
     <div class="btn-row">
       <button class="btn primary" type="button" (click)="exportData()">Eksportuj JSON</button>
       <label class="btn">Importuj JSON<input type="file" accept="application/json,.json" class="sr-only" (change)="importData($event)" /></label>
     </div>
     <div class="divider"></div>
-    <button class="btn danger" type="button" (click)="reset()">Usuń wszystkie dane</button>
+    <button class="btn danger" type="button" (click)="reset()">Usuń wszystkie dane treningowe</button>
   </section>
 </div>

@@ -15,10 +15,11 @@ import { validateTrainingDays } from '../../core/logic/plan';
 import { GRIP_LABELS, HOLD_LABELS, TEMPLATES } from '../../core/logic/templates';
 import { describeLevel } from '../../core/logic/progression';
 import { DatePlPipe } from '../../shared/pipes';
+import { AccountSection } from './account-section';
 
 @Component({
   selector: 'app-profile',
-  imports: [RouterLink, FormsModule, DatePlPipe, TitleCasePipe],
+  imports: [RouterLink, FormsModule, DatePlPipe, TitleCasePipe, AccountSection],
   templateUrl: './profile.html',
   styles: `
     .pf-sum { font-size: 0.85rem; }
@@ -197,7 +198,7 @@ export class ProfilePage {
   }
 
   protected async reset() {
-    if (!confirm('Usunąć WSZYSTKIE dane (profil, cykle, historię)? Najpierw wyeksportuj kopię zapasową.')) return;
+    if (!confirm('Usunąć WSZYSTKIE dane treningowe (profil, cykle, historię) – na tym urządzeniu i w bazie konta? Najpierw wyeksportuj kopię zapasową.')) return;
     if (!confirm('Na pewno? Tej operacji nie można cofnąć.')) return;
     await this.store.resetAll();
     this.p.set(structuredClone(this.store.profile()));
