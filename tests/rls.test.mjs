@@ -29,7 +29,7 @@ describe('RLS – poziom SQL (rola authenticated + claim sub)', { skip: !DB_URL 
   let c;
   const A = `rls-test-a-${randomUUID()}`;
   const B = `rls-test-b-${randomUUID()}`;
-  const ids = { cycle: randomUUID(), session: randomUUID(), route: randomUUID(), hang: randomUUID(), assessment: randomUUID(), readiness: randomUUID() };
+  const ids = { cycle: randomUUID(), session: randomUUID(), route: randomUUID(), hang: randomUUID(), assessment: randomUUID(), readiness: randomUUID(), planned: randomUUID(), event: randomUUID() };
   const TS = new Date().toISOString();
   const json = (v) => JSON.stringify(v);
 
@@ -57,6 +57,9 @@ describe('RLS – poziom SQL (rola authenticated + claim sub)', { skip: !DB_URL 
   before(async () => {
     pool = new Pool({ connectionString: DB_URL });
     c = await pool.connect();
+    // pg_session_jwt inicjalizuje się przy pierwszym wywołaniu w sesji – wywołane od razu z roli
+    // authenticated (przez funkcję SECURITY DEFINER) zwraca jednorazowo NULL. Rozgrzewka jako właściciel.
+    await c.query('SELECT auth.user_id()');
     await c.query('BEGIN');
   });
 
@@ -66,10 +69,13 @@ describe('RLS – poziom SQL (rola authenticated + claim sub)', { skip: !DB_URL 
     await pool?.end();
   });
 
-  it('auth.user_id() zwraca sub z tokenu', async () => {
+  it('app.current_user_id() zwraca sub z tokenu', async () => {
     await as(A);
-    const { rows } = await c.query('SELECT auth.user_id() AS uid');
+    const { rows } = await c.query('SELECT app.current_user_id() AS uid');
     assert.equal(rows[0].uid, A, 'pg_session_jwt nie odczytuje request.jwt.claims – sprawdź konfigurację Data API');
+    await as(B);
+    const r2 = await c.query('SELECT app.current_user_id() AS uid');
+    assert.equal(r2.rows[0].uid, B);
   });
 
   it('A zapisuje własne dane – user_id nadaje baza, nie klient', async () => {
@@ -78,6 +84,15 @@ describe('RLS – poziom SQL (rola authenticated + claim sub)', { skip: !DB_URL 
       `INSERT INTO training_cycles (id, name, start_date, weeks, status, protocol_version, deload_weeks, control_test_after_weeks, params, initial_params, created_at, updated_at)
        VALUES ($1, 'Cykl testowy', '2026-03-02', 6, 'active', '1.0', '[4]', '[3]', '{}', '{}', $2, $2)`,
       [ids.cycle, TS],
+    );
+    await c.query(
+      `INSERT INTO planned_workouts (id, cycle_id, scheduled_date, original_date, week, workout_type, status, plan_data, created_at, updated_at)
+       VALUES ($1, $2, '2026-03-05', '2026-03-05', 1, 'B', 'planned', '{}', $3, $3)`,
+      [ids.planned, ids.cycle, TS],
+    );
+    await c.query(
+      `INSERT INTO adaptation_events (id, cycle_id, occurred_at, kind, reason) VALUES ($1, $2, $3, 'plan', 'test RLS')`,
+      [ids.event, ids.cycle, TS],
     );
     await c.query(
       `INSERT INTO workout_sessions (id, cycle_id, workout_type, week, session_date, started_at, completed_at, duration_seconds, status, prescription, exercises, sets, created_at, updated_at)
@@ -209,6 +224,13 @@ describe('RLS – poziom SQL (rola authenticated + claim sub)', { skip: !DB_URL 
       assert.equal(r.relrowsecurity, true, `RLS wyłączone: ${r.relname}`);
       assert.equal(r.policies, 4, `${r.relname}: oczekiwano 4 polityk (SELECT/INSERT/UPDATE/DELETE)`);
     }
+    // każda polityka porównuje user_id z app.current_user_id() (auth.* jest niedostępne dla authenticated)
+    const pol = await c.query(
+      `SELECT tablename, policyname FROM pg_policies WHERE schemaname = 'public' AND tablename = ANY($1)
+         AND coalesce(qual, with_check) NOT LIKE '%app.current_user_id()%'`,
+      [TABLES],
+    );
+    assert.deepEqual(pol.rows, [], 'polityki bez app.current_user_id()');
   });
 });
 

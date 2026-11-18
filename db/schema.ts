@@ -4,8 +4,10 @@
  * Zasady:
  *  - identyfikatory rekordów to UUID generowane po stronie klienta (uid()) – zapis jest idempotentny
  *    (upsert po id), więc ponowienie przerwanej synchronizacji nie tworzy duplikatów;
- *  - `user_id` NIE pochodzi z frontendu: domyślna wartość to `auth.user_id()` (claim `sub` zweryfikowanego
- *    JWT Neon Auth), a polityki RLS odrzucają każdy wiersz, którego `user_id` ≠ `auth.user_id()`;
+ *  - `user_id` NIE pochodzi z frontendu: domyślna wartość to `app.current_user_id()` (claim `sub` zweryfikowanego
+ *    JWT Neon Auth, czytany przez `auth.user_id()` z pg_session_jwt), a polityki RLS odrzucają każdy wiersz,
+ *    którego `user_id` ≠ `app.current_user_id()`. Pośrednik jest potrzebny, bo schemat `auth` należy do Neon
+ *    (cloud_admin) i rola `authenticated` nie ma do niego USAGE – patrz drizzle/0003_current_user_id.sql;
  *  - tabele podrzędne mają złożone klucze obce (rodzic.id, user_id) – nie da się podpiąć rekordu
  *    pod cudzy trening / test nawet znając jego UUID;
  *  - konta i hasła przechowuje Neon Auth we własnym schemacie `neon_auth` – tu nie ma tabeli użytkowników.
@@ -17,18 +19,20 @@ import { sql } from 'drizzle-orm';
 import {
   AnyPgColumn, boolean, check, date, foreignKey, index, integer, jsonb, numeric, pgPolicy, pgTable, smallint, text, timestamp, unique, uuid,
 } from 'drizzle-orm/pg-core';
-import { authenticatedRole, authUid } from 'drizzle-orm/neon';
+import { authenticatedRole } from 'drizzle-orm/neon';
 
 /* ---------------- pomocnicze ---------------- */
 
-const userId = () => text('user_id').notNull().default(sql`(auth.user_id())`);
+/** Identyfikator zalogowanego użytkownika (sub z JWT Neon Auth) – funkcja z migracji 0003 */
+const currentUserId = sql`app.current_user_id()`;
+const userId = () => text('user_id').notNull().default(sql`(${currentUserId})`);
 const tstz = (name: string) => timestamp(name, { withTimezone: true, mode: 'string' });
 const num = (name: string) => numeric(name, { mode: 'number' });
 const day = (name: string) => date(name, { mode: 'string' });
 
 /** Polityki SELECT / INSERT / UPDATE / DELETE: wyłącznie własne rekordy zalogowanego użytkownika */
 function ownerPolicies(table: string, col: AnyPgColumn) {
-  const own = authUid(col);
+  const own = sql`(select ${currentUserId} = ${col})`;
   return [
     pgPolicy(`${table}_select_own`, { for: 'select', to: authenticatedRole, using: own }),
     pgPolicy(`${table}_insert_own`, { for: 'insert', to: authenticatedRole, withCheck: own }),
