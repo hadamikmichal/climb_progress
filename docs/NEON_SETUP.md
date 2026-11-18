@@ -29,6 +29,11 @@ Otwórz projekt: Vercel → **Storage** → `neon-fulvous-prism` → **Open in N
 
 Po włączeniu w bazie pojawiają się role `authenticated` i `anonymous` oraz funkcja `auth.user_id()` – migracje ich wymagają.
 
+> Schemat `auth` należy do Neon (`cloud_admin`), a rola `authenticated` nie ma do niego `USAGE`. Nie można tego zmienić,
+> bo `neondb_owner` nie ma `GRANT OPTION`. Dlatego polityki RLS i domyślne `user_id` korzystają z
+> `app.current_user_id()` (`SECURITY DEFINER`, właściciel bazy, zwraca tylko `sub` bieżącej sesji, migracja `0003`).
+> Schemat `app` nie jest wystawiony przez Data API.
+
 > Data API nie działa przy włączonym IP Allow / Private Networking.
 
 ### 1.2 Neon Auth – email i hasło
@@ -69,7 +74,9 @@ Migracje uruchamiamy lokalnie albo w CI – **nigdy z przeglądarki**.
 
 2. Sprawdź konfigurację: `npm run db:check` – wypisze, czego brakuje (Neon Auth, Data API, role, tabele, RLS).
 3. Zastosuj migracje: `npm run db:migrate` (`drizzle/0000_init.sql` – tabele, indeksy, ograniczenia, RLS i polityki;
-   `drizzle/0001_grants.sql` – uprawnienia `authenticated`, brak dostępu dla `anonymous`).
+   `drizzle/0001_grants.sql` – uprawnienia `authenticated`, brak dostępu dla `anonymous`;
+   `0002` – bez efektu na Neon, zostaje w historii; `0003` – `app.current_user_id()`;
+   `0004` – polityki i domyślne `user_id` przez `app.current_user_id()`).
 4. Ponownie `npm run db:check` – wszystko powinno być ✔.
 5. Testy izolacji: `npm run test:rls`
    - część SQL (zawsze przy `DATABASE_URL`): wszystko w jednej transakcji z `ROLLBACK`, nic nie zostaje w bazie;
