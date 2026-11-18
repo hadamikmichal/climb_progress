@@ -4,7 +4,7 @@ import {
   TestResult, TrainingCycle, TrainingParams, TrainingType, UserProfile, WeeklyReport,
 } from '../models/models';
 import { Assessment, AssessmentKind, AssessmentPart } from '../models/assessment';
-import { Db, StoreName } from './db';
+import { Db, StoreName, SYNCED_STORES, WriteOp } from './db';
 import { buildExport, parseImport } from './backup';
 import { addDays, formatDate, today } from '../logic/dates';
 import { now, uid } from '../logic/ids';
@@ -36,7 +36,9 @@ const byTsDesc = <T extends { timestamp: string }>(a: T, b: T) => (a.timestamp <
  */
 @Injectable({ providedIn: 'root' })
 export class AppStore {
-  private db!: Db;
+  private db: Db | null = null;
+  /** Wywoływane po każdym lokalnym zapisie synchronizowanych danych (planuje wysyłkę do Neon) */
+  onLocalChange: (() => void) | null = null;
 
   readonly ready = signal(false);
   readonly error = signal<string | null>(null);
@@ -91,21 +93,26 @@ export class AppStore {
 
   /* ---------------- inicjalizacja ---------------- */
 
-  async init(): Promise<void> {
+  /**
+   * Otwiera dane zalogowanego konta (osobna baza IndexedDB na konto).
+   * Domyślny profil nowego konta nie trafia do kolejki – nie nadpisze profilu zapisanego na innym urządzeniu.
+   */
+  async open(db: Db): Promise<void> {
+    this.db = db;
+    this.error.set(null);
     try {
       const q = new URLSearchParams(globalThis.location?.search ?? '').get('today');
       if (q && /^\d{4}-\d{2}-\d{2}$/.test(q)) this.today.set(q);
-      this.db = await Db.open();
-      const data = await this.db.loadAll();
+      const data = await db.loadAll();
       if (!data.profile.length) {
         const p = defaultProfile(now());
-        await this.db.write([{ store: 'profile', put: [p] }]);
+        await db.write([{ store: 'profile', put: [p] }], false);
         data.profile = [p];
       }
       data.assessments ??= [];
       const migrated = migrateLegacyPlanned(data.planned, now());
       if (migrated.length) {
-        await this.db.write([{ store: 'planned', put: migrated }]);
+        await this.persist([{ store: 'planned', put: migrated }]);
         const ids = new Set(migrated.map((m) => m.id));
         data.planned = [...data.planned.filter((p) => !ids.has(p.id)), ...migrated];
       }
@@ -116,6 +123,28 @@ export class AppStore {
       console.error(e);
       this.error.set('Nie udało się otworzyć lokalnej bazy danych (IndexedDB). Sprawdź, czy przeglądarka nie działa w trybie prywatnym.');
     }
+  }
+
+  /** Ponowne wczytanie po scaleniu danych z serwera */
+  async reload(): Promise<void> {
+    if (!this.db) return;
+    const data = await this.db!.loadAll();
+    if (!data.profile.length) data.profile = [this.profile()];
+    this.applyData(data);
+    await this.ensureWeeklyReports();
+  }
+
+  /** Wylogowanie: czyści stan w pamięci – żaden widok nie pokaże danych poprzedniego konta */
+  close(): void {
+    this.ready.set(false);
+    this.db?.close();
+    this.db = null;
+    this.onLocalChange = null;
+    this.applyData({ profile: [], cycles: [], planned: [], completed: [], readiness: [], tests: [], events: [], reports: [], drafts: [], assessments: [] });
+  }
+
+  get database(): Db | null {
+    return this.db;
   }
 
   private applyData(d: AppData) {
@@ -138,8 +167,18 @@ export class AppStore {
     sig.set([...map.values()]);
   }
 
-  private async persist(ops: { store: StoreName; put?: unknown[]; del?: string[] }[]) {
-    await this.db.write(ops);
+  private async persist(ops: WriteOp[]) {
+    if (!this.db) throw new Error('Brak otwartej bazy konta');
+    await this.db!.write(ops);
+    if (ops.some((o) => (SYNCED_STORES as readonly string[]).includes(o.store))) this.onLocalChange?.();
+  }
+
+  /** Identyfikatory wszystkich rekordów – do wyliczenia usunięć przy zastępowaniu danych */
+  private currentIds(): Partial<Record<StoreName, string[]>> {
+    return {
+      profile: ['me'], cycles: this.cycles().map((x) => x.id), planned: this.planned().map((x) => x.id), completed: this.completed().map((x) => x.id),
+      readiness: this.readiness().map((x) => x.id), tests: this.tests().map((x) => x.id), events: this.events().map((x) => x.id), assessments: this.assessments().map((x) => x.id),
+    };
   }
 
   private event(e: Omit<AdaptationEvent, 'id' | 'timestamp'>): AdaptationEvent {
@@ -181,7 +220,7 @@ export class AppStore {
     const n = this.cycles().length + 1;
     // Nowy cykl startuje od parametrów, na których zakończył się poprzedni
     const params = prevCycle && (prevCycle.status === 'completed' || prevCycle.status === 'archived') ? prevCycle.params : initialParams(this.profile());
-    const cycle = createCycle(`Cykl ${n}`, baselineDate, params, ts);
+    const cycle: TrainingCycle = { ...createCycle(`Cykl ${n}`, baselineDate, params, ts), goalGrade: this.profile().targetGrade || null };
     // Test dróg: zablokowany benchmark z poprzednich cykli albo kalibracja od kandydackiej trudności z wywiadu
     const benchmark = this.cycles().map((c) => c.benchmark).filter((b) => !!b).sort((a, b) => (a!.lockedAt < b!.lockedAt ? 1 : -1))[0];
     if (benchmark) {
@@ -391,8 +430,11 @@ export class AppStore {
    * Zwraca decyzje progresji (po jednej na tor), które UI pokazuje w podsumowaniu.
    * Pusta lista = sesja nie wpływa na progresję (deload / lżejsza wersja / trening A).
    */
-  async completeWorkout(w: CompletedWorkout): Promise<ProgressionDecision[]> {
+  async completeWorkout(input: CompletedWorkout): Promise<ProgressionDecision[]> {
     const ts = now();
+    // masa ciała z dnia treningu – do obciążenia całkowitego zwisów w historii
+    const mass = this.profile().weightKg || null;
+    const w: CompletedWorkout = { ...input, hangs: input.hangs.map((h) => (h.bodyMassKg === undefined ? { ...h, bodyMassKg: mass } : h)) };
     const ops: { store: StoreName; put?: unknown[]; del?: string[] }[] = [{ store: 'completed', put: [w] }];
     const p = w.plannedWorkoutId ? this.getPlanned(w.plannedWorkoutId) : null;
     let nextPlanned: PlannedWorkout | null = null;
@@ -814,18 +856,42 @@ export class AppStore {
     return JSON.stringify(buildExport(data, now()), null, 2);
   }
 
+  /** Import kopii JSON zastępuje dane konta – także w Neon (usunięcia i zapisy trafiają do kolejki) */
   async importJson(text: string): Promise<void> {
     const data = parseImport(text);
     if (!data.profile.length) data.profile = [this.profile()];
-    await this.db.replaceAll(data);
+    await this.db!.replaceAll(data, this.currentIds());
     this.applyData(data);
+    this.onLocalChange?.();
   }
 
   async resetAll(): Promise<void> {
     const p = defaultProfile(now());
     const empty: AppData = { profile: [p], cycles: [], planned: [], completed: [], readiness: [], tests: [], events: [], reports: [], drafts: [], assessments: [] };
-    await this.db.replaceAll(empty);
+    await this.db!.replaceAll(empty, this.currentIds());
     this.applyData(empty);
+    this.onLocalChange?.();
+  }
+
+  /**
+   * Dołączenie danych sprzed kont do bieżącego konta. Rekordy zachowują swoje UUID, więc ponowny
+   * import (np. po przerwaniu) nie tworzy duplikatów ani lokalnie, ani w Neon (upsert po id).
+   * Profil z urządzenia jest przyjmowany tylko, gdy konto nie ma jeszcze profilu zapisanego w Neon.
+   */
+  async importLegacy(data: AppData, takeProfile: boolean): Promise<number> {
+    const ops: WriteOp[] = [];
+    let count = 0;
+    for (const s of ['cycles', 'planned', 'completed', 'assessments', 'tests', 'readiness', 'events'] as const) {
+      const items = (data[s] ?? []) as unknown[];
+      count += items.length;
+      if (items.length) ops.push({ store: s, put: items });
+    }
+    if (takeProfile && data.profile[0]) ops.push({ store: 'profile', put: [{ ...data.profile[0], id: 'me', updatedAt: now() }] });
+    // szkice trwających sesji – tylko lokalnie
+    if (data.drafts?.length) await this.db!.write([{ store: 'drafts', put: data.drafts }], false);
+    await this.persist(ops);
+    await this.reload();
+    return count;
   }
 
   /** Dni od ostatniej ciężkiej jednostki (do karty regeneracji) */

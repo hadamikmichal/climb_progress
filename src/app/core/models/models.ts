@@ -150,6 +150,8 @@ export interface TrainingCycle {
   extraBenchmarks?: BenchmarkProtocol[];
   /** Profile zdolności i priorytety wyliczone po Baseline Test – podstawa doboru planu */
   abilities?: AbilityReport;
+  /** Cel trudności w chwili rozpoczęcia cyklu */
+  goalGrade?: string | null;
 }
 
 /* ---------------- Profile zdolności i kalibracja ---------------- */
@@ -317,6 +319,8 @@ export interface HangboardLog {
   pain: boolean;
   notes: string;
   timestamp: Timestamp;
+  /** Masa ciała w dniu treningu (do obciążenia całkowitego); brak = nieznana */
+  bodyMassKg?: number | null;
 }
 
 export interface SetLog {
