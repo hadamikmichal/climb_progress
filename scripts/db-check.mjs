@@ -38,6 +38,11 @@ const roles = (await sql`select rolname from pg_roles where rolname in ('authent
 line(roles.includes('authenticated'), 'Rola authenticated', 'Pojawia się po włączeniu Data API.');
 line(roles.includes('anonymous'), 'Rola anonymous', 'Pojawia się po włączeniu Data API.');
 
+// auth.* należy do Neon (cloud_admin) i nie jest dostępne dla authenticated – polityki używają pośrednika
+const cu = await one(sql`select to_regprocedure('app.current_user_id()') is not null as ok`);
+const cuExec = cu.ok ? await one(sql`select has_function_privilege('authenticated', 'app.current_user_id()', 'execute') as ok`) : { ok: false };
+line(cu.ok && cuExec.ok, 'Funkcja app.current_user_id() dostępna dla authenticated', 'Uruchom npm run db:migrate (migracja 0003).');
+
 const tables = ['profiles', 'training_cycles', 'planned_workouts', 'workout_sessions', 'route_logs', 'hangboard_logs', 'assessment_sessions', 'assessment_results', 'recovery_measurements', 'readiness_checks', 'adaptation_events'];
 const t = await sql`
   select c.relname, c.relrowsecurity as rls, count(p.polname)::int as policies,

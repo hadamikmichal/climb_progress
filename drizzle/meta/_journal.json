@@ -15,6 +15,27 @@
       "when": 1795002880075,
       "tag": "0001_grants",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1795008158646,
+      "tag": "0002_auth_schema_usage",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1795008374837,
+      "tag": "0003_current_user_id",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1795008386686,
+      "tag": "0004_rls_current_user_id",
+      "breakpoints": true
     }
   ]
 }
