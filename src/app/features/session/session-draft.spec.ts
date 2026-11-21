@@ -81,13 +81,15 @@ describe('szkic sesji – wykonanie pełne vs częściowe', () => {
     const t0 = Date.parse(ts);
     startHang(d, ts);
     expect(advanceTimers(d, t0 + 5_000)).toBe(false);
-    // aplikacja wraca po 30 s: zwis (10 s) zakończony, przerwa trwa od 10. sekundy
+    // aplikacja wraca po 30 s: zwis zakończony, przerwa trwa od końca zwisu
+    const hangMs = params.hangboard.hangSec * 1000;
     expect(advanceTimers(d, t0 + 30_000)).toBe(true);
     expect(d.hang!.setsDone).toBe(1);
+    expect(d.hang!.holdTimes).toEqual([params.hangboard.hangSec]);
     expect(d.timer!.kind).toBe('rest');
-    expect(Date.parse(d.timer!.startedAt)).toBe(t0 + 10_000);
+    expect(Date.parse(d.timer!.startedAt)).toBe(t0 + hangMs);
     // po przerwie timer jest pusty – czeka na start kolejnego zwisu
-    advanceTimers(d, t0 + 10_000 + params.hangboard.restSec * 1000);
+    advanceTimers(d, t0 + hangMs + params.hangboard.restSec * 1000);
     expect(d.timer).toBeNull();
   });
 

@@ -1,4 +1,5 @@
-import { evaluateProgression, assessSession, HistoryEntry, progressStep, levelKey, TRACKS } from './progression';
+import { HistoryEntry, levelKey, TRACKS } from './progression';
+import { assessSession, evaluateProgression, progressStep } from './overload';
 import { P0, workout, route, hang } from './testing/fixtures';
 import { TrainingParams } from '../models/models';
 
@@ -115,46 +116,49 @@ describe('evaluateProgression – reguły', () => {
     expect(levelKey('pe', d.params)).toBe(levelKey('pe', p1));
   });
 
-  it('Max Hangs (B): progresja najpierw liczby serii, potem obciążenia o 2 kg', () => {
+  it('Max Hangs (B): progresja ciężaru o 1,25 kg przy stałych 4 seriach; po zmniejszeniu serii najpierw powrót do 4', () => {
     const d = evaluateProgression('hang', [done(workout('B', '2026-01-05')), done(workout('B', '2026-01-12'))], P0);
     expect(d.action).toBe('progress');
     expect(d.params.hangboard.sets).toBe(4);
-    expect(d.params.hangboard.addedKg).toBe(0);
+    expect(d.params.hangboard.addedKg).toBe(1.25);
 
-    const p5: TrainingParams = structuredClone(P0);
-    p5.hangboard.sets = 5;
-    const ch = progressStep('hang', p5)!;
-    expect(ch.params.hangboard.sets).toBe(5);
-    expect(ch.params.hangboard.addedKg).toBe(2);
+    const p3: TrainingParams = structuredClone(P0);
+    p3.hangboard.sets = 3;
+    const ch = progressStep('hang', p3)!;
+    expect(ch.params.hangboard.sets).toBe(4);
+    expect(ch.params.hangboard.addedKg).toBe(0);
   });
 
   it('Max Hangs: przy odciążeniu progres zmniejsza odciążenie zamiast dodawać ciężar', () => {
     const p: TrainingParams = structuredClone(P0);
-    p.hangboard.sets = 5;
     p.hangboard.assistKg = 5;
     const ch = progressStep('hang', p)!;
-    expect(ch.params.hangboard.assistKg).toBe(3);
+    expect(ch.params.hangboard.assistKg).toBe(3.75);
     expect(ch.params.hangboard.addedKg).toBe(0);
   });
 
-  it('Max Hangs: ból → zmniejszenie obciążenia (nie liczby serii)', () => {
+  it('Max Hangs: ból → koniec ciężkich zwisów, brak progresji, regeneracja (ciężar bez zmian)', () => {
     const p: TrainingParams = structuredClone(P0);
-    p.hangboard.sets = 4;
     p.hangboard.addedKg = 4;
     const w = workout('B', '2026-01-05', p, { hangs: [hang({ pain: true, setsPlanned: 4, setsDone: 4, addedKg: 4 })] });
     const d = evaluateProgression('hang', [done(w)], p);
-    expect(d.action).toBe('reduce');
-    expect(d.params.hangboard.addedKg).toBe(2);
+    expect(d.action).toBe('hold');
+    expect(d.recovery).toBe(true);
+    expect(d.params.hangboard.addedKg).toBe(4);
     expect(d.params.hangboard.sets).toBe(4);
   });
 
-  it('Drogi tlenowe (B): dobre sesje → +1 droga, potem trudność', () => {
+  it('Drogi tlenowe (B): dobre sesje → +1 droga (4 → 5 → 6), potem trudność', () => {
     const d = evaluateProgression('aerobic', [done(workout('B', '2026-01-07')), done(workout('B', '2026-01-14'))], P0);
     expect(d.params.aerobic.routes).toBe(5);
     expect(d.params.aerobic.grade).toBe('5b');
     const p: TrainingParams = structuredClone(P0);
     p.aerobic.routes = 5;
-    expect(progressStep('aerobic', p)!.params.aerobic.grade).toBe('5b+');
+    expect(progressStep('aerobic', p)!.params.aerobic.routes).toBe(6);
+    p.aerobic.routes = 6;
+    const ch = progressStep('aerobic', p)!;
+    expect(ch.params.aerobic.grade).toBe('5b+');
+    expect(ch.params.aerobic.routes).toBe(6);
   });
 
   it('jest deterministyczna – te same dane dają tę samą decyzję', () => {
@@ -185,8 +189,8 @@ describe('evaluateProgression – reguły', () => {
     expect(evaluateProgression('aerobic', hist, P0).action).toBe('progress');
   });
 
-  it('A (trudne drogi) nie ma torów automatycznej progresji', () => {
-    expect(TRACKS.A).toEqual([]);
+  it('A (trudne drogi) ma własny tor progresji (jakość przejść)', () => {
+    expect(TRACKS.A).toEqual(['hard']);
     expect(TRACKS.B).toEqual(['hang', 'aerobic']);
   });
 });

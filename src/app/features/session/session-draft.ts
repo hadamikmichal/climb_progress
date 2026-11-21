@@ -17,6 +17,10 @@ export interface DraftRoute {
   rpe: number | null;
   cruxSent: boolean | null;
   ascent?: AscentStyle | null;
+  /** Trening A: nazwa projektu / drogi (śledzenie poprawy sekwencji) */
+  project?: string;
+  /** Trening A: rozpad techniki w tej próbie */
+  techniqueDegraded?: boolean | null;
   notes: string;
   timestamp: string;
 }
@@ -33,9 +37,20 @@ export interface DraftHang {
   setsDone: number;
   rpe: number | null;
   pain: boolean | null;
+  /** Rzeczywisty czas każdego zaliczonego zwisu (s) – domyślnie pełny czas, korygowany przy wcześniejszym puszczeniu */
+  holdTimes?: number[];
+  /** Technika prawidłowa we wszystkich seriach */
+  techniqueOk?: boolean | null;
   notes: string;
   /** Zwisy zablokowane (ból / gotowość) */
   blocked: boolean;
+}
+
+/** Dopasowuje listę czasów zwisów do liczby zaliczonych serii (nowe serie = pełny czas) */
+export function syncHoldTimes(h: DraftHang): void {
+  const t = (h.holdTimes ?? []).slice(0, h.setsDone);
+  while (t.length < h.setsDone) t.push(h.hangSec);
+  h.holdTimes = t;
 }
 
 export interface WorkoutDraft {
@@ -133,12 +148,16 @@ export function draftToCompleted(d: WorkoutDraft, p: PlannedWorkout, cycle: Trai
     .map((r, i) => ({
       id: r.id, order: i + 1, setIndex: r.setIndex, grade: r.grade, lengthM: 13, completed: r.state === 'sent',
       pump: r.pump, rpe: r.rpe, cruxSent: r.cruxSent, ascent: r.state === 'sent' ? r.ascent ?? null : null, notes: r.notes, timestamp: r.timestamp,
+      ...(r.project?.trim() ? { project: r.project.trim() } : {}),
+      ...(r.techniqueDegraded != null ? { techniqueDegraded: r.techniqueDegraded } : {}),
     }));
   const h = d.hang;
   const hangs = h && !h.blocked && h.setsDone > 0
     ? [{
       id: uid(), date, board: 'Beastmaker 2000', holdType: h.holdType, edge: h.edge, edgeSizeMm: h.edgeSizeMm, grip: h.grip, hangSec: h.hangSec,
       setsPlanned: h.setsPlanned, setsDone: h.setsDone, addedKg: h.addedKg, assistKg: h.assistKg, rpe: h.rpe, pain: !!h.pain, notes: h.notes, timestamp: finishedAt,
+      holdTimes: (h.holdTimes ?? []).slice(0, h.setsDone).concat(Array(Math.max(0, h.setsDone - (h.holdTimes?.length ?? 0))).fill(h.hangSec)),
+      techniqueOk: h.techniqueOk ?? null,
     }]
     : [];
   // Zapisujemy rzeczywiście wykonane parametry zwisu w snapshocie (krawądka/obciążenie mogły zostać zmienione na miejscu)
@@ -207,6 +226,7 @@ export function advanceTimers(d: WorkoutDraft, nowMs: number): boolean {
     changed = true;
     if (t.kind === 'work' && d.hang) {
       d.hang.setsDone = Math.min(d.hang.setsPlanned, d.hang.setsDone + 1);
+      syncHoldTimes(d.hang);
       d.timer = d.hang.setsDone < d.hang.setsPlanned
         ? startTimer('rest', 'Przerwa między seriami', d.params.hangboard.restSec, new Date(timerEndMs(t)).toISOString())
         : null;

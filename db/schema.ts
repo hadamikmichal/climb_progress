@@ -173,6 +173,8 @@ export const workoutSessions = pgTable(
     forearm_pump: smallint('forearm_pump'),
     technique: smallint('technique'),
     feeling_after: smallint('feeling_after'),
+    /** Samopoczucie następnego dnia { date, feeling 1–5, fingerPain, notes, at } – dopisywane później */
+    follow_up: jsonb('follow_up').$type<JsonValue>(),
     notes: text('notes').notNull().default(''),
     /** Snapshot parametrów, z jakimi trening był zaplanowany (w tym przerwy) */
     prescription: jsonb('prescription').$type<JsonValue>().notNull(),
@@ -267,6 +269,10 @@ export const hangboardLogs = pgTable(
     pain: boolean('pain').notNull().default(false),
     successful: boolean('successful').generatedAlwaysAs(sql`sets_done >= sets_planned and not pain`),
     rpe: smallint('rpe'),
+    /** Rzeczywisty czas każdego zwisu (s) w kolejności serii */
+    hold_times_seconds: jsonb('hold_times_seconds').$type<number[]>(),
+    /** Technika prawidłowa we wszystkich seriach */
+    technique_ok: boolean('technique_ok'),
     notes: text('notes').notNull().default(''),
     created_at: tstz('created_at').notNull(),
   },
@@ -405,6 +411,8 @@ export const adaptationEvents = pgTable(
     occurred_at: tstz('occurred_at').notNull(),
     kind: text('kind').notNull(),
     workout_type: text('workout_type'),
+    /** Tor progresji: hang / aerobic / pe / hard */
+    track: text('track'),
     parameter: text('parameter'),
     from_value: text('from_value'),
     to_value: text('to_value'),
@@ -416,6 +424,7 @@ export const adaptationEvents = pgTable(
     foreignKey({ name: 'adaptation_events_cycle_fk', columns: [t.cycle_id, t.user_id], foreignColumns: [trainingCycles.id, trainingCycles.user_id] }).onDelete('cascade'),
     index('adaptation_events_user_time_idx').on(t.user_id, t.occurred_at),
     check('adaptation_events_kind_chk', sql`${t.kind} in ('progress','hold','reduce','reschedule','skip','deload','readiness','manual','plan')`),
+    check('adaptation_events_track_chk', sql`${t.track} is null or ${t.track} in ('hang','aerobic','pe','hard')`),
     ...ownerPolicies('adaptation_events', t.user_id),
   ],
 );

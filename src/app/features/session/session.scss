@@ -58,6 +58,8 @@
 
 /* serie */
 .sets { display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px; }
+.hold-times { display: grid; gap: 6px; }
+.hold-times input { min-width: 0; text-align: center; padding: 8px 4px; }
 .set-btn {
   min-height: 52px; border-radius: 8px; border: 1px solid var(--color-border); background: transparent; color: var(--color-text-secondary);
   font: 500 1.1rem var(--font-mono); cursor: pointer;

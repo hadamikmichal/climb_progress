@@ -72,7 +72,14 @@ export interface HangboardParams {
   repeaterOnSec?: number;
   repeaterOffSec?: number;
   repeaterReps?: number;
+  /**
+   * Kalibracja ciężaru treningowego Max Hangs: `pending` = pierwsza sesja ustala ciężar (cel RPE 7–8),
+   * `confirmed` = ciężar zatwierdzony po sesji kalibracyjnej. Brak = dane sprzed silnika progresji (traktowane jak `confirmed`).
+   */
+  calibration?: HangCalibration;
 }
+
+export type HangCalibration = 'pending' | 'confirmed';
 
 export type FingerProtocol = 'max_hangs' | 'repeaters';
 
@@ -292,6 +299,8 @@ export interface RouteLog {
   lengthM: number;
   /** Ukończona bez odpadnięcia */
   completed: boolean;
+  /** Nazwa projektu / drogi (trening A) – pozwala śledzić poprawę konkretnych sekwencji między sesjami */
+  project?: string | null;
   pump: number | null;
   rpe: number | null;
   cruxSent?: boolean | null;
@@ -321,6 +330,20 @@ export interface HangboardLog {
   timestamp: Timestamp;
   /** Masa ciała w dniu treningu (do obciążenia całkowitego); brak = nieznana */
   bodyMassKg?: number | null;
+  /** Rzeczywisty czas każdego wykonanego zwisu (s), w kolejności serii; brak = nie zapisano */
+  holdTimes?: number[] | null;
+  /** Technika (pozycja chwytu, aktywne barki, brak „rozjeżdżania się” palców) prawidłowa we wszystkich seriach */
+  techniqueOk?: boolean | null;
+}
+
+/** Samopoczucie następnego dnia po treningu – część oceny tolerancji obciążenia */
+export interface FollowUp {
+  date: ISODate;
+  /** 1 (rozbity) – 5 (świetnie) */
+  feeling: number;
+  fingerPain: boolean;
+  notes: string;
+  at: Timestamp;
 }
 
 export interface SetLog {
@@ -362,6 +385,8 @@ export interface CompletedWorkout {
   technique: number | null;
   /** Samopoczucie po treningu 1–5 */
   feelingAfter: number | null;
+  /** Samopoczucie następnego dnia (dopisywane później; nie zmienia wyników sesji) */
+  followUp?: FollowUp | null;
   notes: string;
   createdAt: Timestamp;
   updatedAt: Timestamp;
@@ -448,6 +473,8 @@ export interface AdaptationEvent {
   timestamp: Timestamp;
   kind: AdaptationKind;
   workoutType?: WorkoutType;
+  /** Tor progresji, którego dotyczy decyzja (hang / aerobic / pe / hard) */
+  track?: 'hang' | 'aerobic' | 'pe' | 'hard';
   parameter?: string;
   from?: string;
   to?: string;
