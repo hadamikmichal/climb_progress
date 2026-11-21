@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { evaluateProgression, HistoryEntry, levelKey } from '../progression';
+import { HistoryEntry, levelKey } from '../progression';
+import { evaluateProgression } from '../overload';
 import { P0, hang, workout } from '../testing/fixtures';
 import { baseline, circuit, climbingTest, intake, peParams } from '../testing/adaptive-fixtures';
 import { assessAbilities } from './abilities';
@@ -43,7 +44,7 @@ describe('Scenariusz 1: 3 × 3 na 5c – wymaga progresji', () => {
   });
 
   it('uzasadnienie: dwie dobre sesje, jeden parametr, kolejny krok', () => {
-    expect(d.reason).toContain('dwie kolejne dobre sesje');
+    expect(d.reason).toContain('dwie kolejne udane sesje');
     expect(d.reason).toContain('5c → 5c+');
     expect(d.reason).toContain('Pozostałe parametry bez zmian');
     expect(d.blockers).toEqual([]);
@@ -65,8 +66,8 @@ describe('Scenariusz 2: 3 × 3 na 6b z wysokim RPE', () => {
     const d = evaluateProgression('pe', [done(circuit('2026-01-03', p)), done(circuit('2026-01-10', p, { rpe: 9, pump: 8 }))], p);
     expect(d.action).toBe('hold');
     expect(d.params).toEqual(p);
-    expect(d.reason).toContain('RPE 9 > 8');
-    expect(d.blockers.join(' ')).toContain('RPE 9 > 8');
+    expect(d.reason).toContain('RPE ≤ 8 – RPE 9');
+    expect(d.blockers.join(' ')).toContain('RPE ≤ 8 – RPE 9');
   });
 
   it('nieukończone przy RPE 9 i zachowanej technice → mniejsza objętość, trudność bez zmian', () => {
@@ -124,12 +125,14 @@ describe('Scenariusz 4: wysoka siła palców, słaba wytrzymałość', () => {
     expect(report.profiles.powerEndurance.evidence.join(' ')).toContain('ukończone 2/4');
   });
 
-  it('priorytet: wytrzymałość siłowa, siła palców w dawce podtrzymującej', () => {
+  it('priorytet: wytrzymałość siłowa; zwisy startują od sesji kalibracyjnej, nie od maksimum', () => {
     expect(report.priority).toContain('Priorytetem jest wytrzymałość siłowa');
     expect(report.priority).toContain('Utrzymuj siłę palców');
-    expect(params.hangboard.sets).toBe(3);
-    expect(params.hangboard.addedKg).toBe(14); // 80% z 105 kg − 70 kg
-    expect(report.reasons.join(' ')).toContain('dawce podtrzymującej');
+    expect(params.hangboard.sets).toBe(4);
+    expect(params.hangboard.hangSec).toBe(7);
+    expect(params.hangboard.addedKg).toBe(18.75); // 85% z 105 kg = 89,25 kg − 70 kg = 19,25 → w dół do 1,25 kg
+    expect(params.hangboard.calibration).toBe('pending');
+    expect(report.reasons.join(' ')).toContain('Sesja kalibracyjna');
   });
 
   it('nie dodaje Repeaters automatycznie mimo słabej wytrzymałości', () => {
@@ -161,10 +164,11 @@ describe('Scenariusz 5: słaba siła palców, dobra wytrzymałość', () => {
 
   it('Max Hangs z odciążeniem: 4 serie, 85% własnego maksimum', () => {
     expect(params.hangboard.sets).toBe(4);
-    expect(params.hangboard.assistKg).toBe(16); // 85% z 63 kg ≈ 53,6 kg → 70 − 16
+    expect(params.hangboard.assistKg).toBe(17.5); // 85% z 63 kg ≈ 53,6 kg → −16,45 → w dół do kroku 1,25 kg (więcej odciążenia)
     expect(params.hangboard.addedKg).toBe(0);
     expect(report.reasons.join(' ')).toContain('85%');
     expect(report.reasons.join(' ')).toContain('główne ograniczenie');
+    expect(report.reasons.join(' ')).toContain('to maksimum, nie ciężar treningowy');
   });
 });
 
@@ -204,17 +208,17 @@ describe('Scenariusz 6: użytkownik nie wykonuje treningu', () => {
 });
 
 describe('Scenariusz 7: ból palców', () => {
-  it('ból podczas zwisów → mniejsze obciążenie (nie liczba serii) i wyjaśnienie', () => {
+  it('ból podczas zwisów → koniec ciężkich zwisów, brak progresji, regeneracja i ocena gotowości', () => {
     const p = structuredClone(P0);
     p.hangboard.addedKg = 4;
     const w = workout('B', '2026-01-05', p);
-    w.hangs = [hang({ setsPlanned: 3, setsDone: 3, addedKg: 4, pain: true })];
+    w.hangs = [hang({ setsPlanned: 4, setsDone: 2, addedKg: 4, pain: true })];
     const d = evaluateProgression('hang', [done(w)], p);
-    expect(d.action).toBe('reduce');
-    expect(d.params.hangboard.addedKg).toBe(2);
-    expect(d.params.hangboard.sets).toBe(p.hangboard.sets);
-    expect(d.reason).toContain('ból');
-    expect(d.reason).toContain('zmniejszamy obciążenie');
+    expect(d.action).toBe('hold');
+    expect(d.recovery).toBe(true);
+    expect(d.params).toEqual(p);
+    expect(d.reason).toContain('Kończymy ciężkie zwisy');
+    expect(d.reason).toContain('ponowna ocena gotowości');
   });
 
   it('ból zgłoszony w ocenie gotowości blokuje progresję mimo dobrych sesji', () => {
@@ -233,9 +237,9 @@ describe('Scenariusz 7: ból palców', () => {
     const w = workout('B', '2026-02-20', P0);
     w.hangs = [hang({ pain: true })];
     const { params, report } = plan(a, intake(), [w]);
-    // 75% z 90 kg = 67,5 kg → 2 kg odciążenia (zamiast 80% przy braku bólu: 72 kg → +2 kg)
+    // 75% z 90 kg = 67,5 kg → 2,5 kg odciążenia (zamiast 85% przy braku bólu: 76,5 kg → +6,25 kg)
     expect(params.hangboard.addedKg).toBe(0);
-    expect(params.hangboard.assistKg).toBe(2);
+    expect(params.hangboard.assistKg).toBe(2.5);
     expect(report.reasons.join(' ')).toContain('z bólem');
   });
 });

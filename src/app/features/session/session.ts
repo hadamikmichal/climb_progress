@@ -7,7 +7,8 @@ import { AppStore } from '../../core/data/store';
 import { AscentStyle, CompletedWorkout, Exercise, GripPosition, TrainingType } from '../../core/models/models';
 import { easyParams, prescriptionFor } from '../../core/logic/plan';
 import { prescriptionLines } from '../../core/logic/describe';
-import { assessSession, formatLoad, ProgressionDecision, SessionAssessment } from '../../core/logic/progression';
+import { formatLoad, ProgressionDecision, SessionAssessment } from '../../core/logic/progression';
+import { assessSession } from '../../core/logic/overload';
 import { GRADES, shiftGrade } from '../../core/logic/grades';
 import { now, uid } from '../../core/logic/ids';
 import { ASCENT_LABELS, GRIP_LABELS, TEMPLATES, TYPE_SHORT, isTest } from '../../core/logic/templates';
@@ -19,7 +20,7 @@ import { DatePlPipe } from '../../shared/pipes';
 import { beep } from '../../shared/beep';
 import { LeaveGuarded } from '../../shared/leave-guard';
 import {
-  advanceTimers, DraftRoute, draftToCompleted, elapsedMin, HARD_ROUTE_REST_SEC, missingParts, newDraft, RouteState, startHang, startRest, WorkoutDraft,
+  advanceTimers, DraftRoute, draftToCompleted, elapsedMin, HARD_ROUTE_REST_SEC, missingParts, newDraft, RouteState, startHang, startRest, syncHoldTimes, WorkoutDraft,
 } from './session-draft';
 
 type Phase = 'setup' | 'active' | 'summary' | 'result';
@@ -103,6 +104,8 @@ export class SessionPage implements LeaveGuarded {
     return { set: round ? 'Runda' : 'Seria', setLoc: round ? 'rundzie' : 'serii', setGen: round ? 'rundy' : 'serii', unit, hint };
   });
   protected readonly assessment = this.store.todayAssessment;
+  /** Ból palców w ostatniej sesji zwisów bez późniejszej oceny gotowości */
+  protected readonly painLock = computed(() => this.store.hangNeedsReadiness());
   protected readonly elapsed = computed(() => (this.draft() ? elapsedMin(this.draft()!.startedAt, this.nowMs()) : 0));
   protected readonly missing = computed(() => (this.draft() ? missingParts(this.draft()!) : []));
 
@@ -165,6 +168,8 @@ export class SessionPage implements LeaveGuarded {
   protected readonly lastAttempt = computed(() => this.hardAttempts().at(-1) ?? null);
 
   protected newGrade = '';
+  /** Trening A: nazwa projektu dla kolejnych prób */
+  protected newProject = '';
   private wakeLock: { release(): Promise<void> } | null = null;
 
   constructor() {
@@ -245,7 +250,8 @@ export class SessionPage implements LeaveGuarded {
     if (!p || !pr) return;
     const a = this.assessment();
     const params = light ? easyParams(pr.params) : pr.params;
-    const hangBlocked = !!a && !a.allowHangboard;
+    // ból palców w ostatniej sesji zwisów → ciężkie zwisy dopiero po ocenie gotowości bez bólu
+    const hangBlocked = (!!a && !a.allowHangboard) || this.store.hangNeedsReadiness();
     const d = newDraft(p, params, pr.deload, light, now(), hangBlocked);
     if (this.partial()) d.forcePartial = true;
     this.draft.set(d);
@@ -339,6 +345,16 @@ export class SessionPage implements LeaveGuarded {
     this.patch((d) => {
       if (!d.hang) return;
       d.hang.setsDone = d.hang.setsDone === n ? n - 1 : n;
+      syncHoldTimes(d.hang);
+    });
+  }
+
+  /** Korekta czasu zwisu (puszczenie przed czasem) */
+  protected setHoldTime(i: number, v: number) {
+    this.patch((d) => {
+      if (!d.hang) return;
+      syncHoldTimes(d.hang);
+      d.hang.holdTimes![i] = Math.max(0, Math.min(d.hang.hangSec, Number.isFinite(v) ? v : d.hang.hangSec));
     });
   }
 
@@ -409,7 +425,10 @@ export class SessionPage implements LeaveGuarded {
     if (!d) return;
     const grade = this.newGrade || this.lastAttempt()?.grade || d.params.hardRoutes.gradeFrom;
     this.patch((x) => {
-      x.routes.push({ id: uid(), setIndex: 0, grade, state: sent ? 'sent' : 'fell', pump: null, rpe: null, cruxSent: sent ? true : null, ascent: null, notes: '', timestamp: now() });
+      x.routes.push({
+        id: uid(), setIndex: 0, grade, state: sent ? 'sent' : 'fell', pump: null, rpe: null, cruxSent: sent ? true : null, ascent: null,
+        project: this.newProject.trim() || undefined, techniqueDegraded: false, notes: '', timestamp: now(),
+      });
       startRest(x, 'Pełna przerwa między próbami', HARD_ROUTE_REST_SEC, now());
     });
   }

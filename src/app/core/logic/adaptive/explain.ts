@@ -1,5 +1,6 @@
 import { AdaptationEvent, TrainingCycle, TrainingType } from '../../models/models';
-import { describeTrack, nextStepText, TRACK_NAMES, TRACKS } from '../progression';
+import { describeTrack, TRACK_NAMES, TRACKS } from '../progression';
+import { nextStepText } from '../overload/progressive-overload.service';
 import { ABILITY_PL, STATUS_LABELS } from './abilities';
 import { FINGER_PROTOCOL_LABELS, PE_PROTOCOLS, protocolOf } from './protocols';
 import { isBalanced } from './prescription';
@@ -51,7 +52,7 @@ export function explainSession(type: TrainingType, cycle: TrainingCycle, events:
         : `Siła palców: ${STATUS_LABELS[ab.profiles.finger.status]} – zwisy w dawce podtrzymującej, bez zwiększania objętości bez potrzeby.`);
       if (ab.mainLimitation === 'aerobic') why.push('Wytrzymałość tlenowa to główne ograniczenie – większa objętość łatwych dróg.');
     }
-    goal.push(`Zwisy z zapasem (RPE ok. 8), drogi tlenowe z pompowaniem maks. ${p.aerobic.targetMaxPump}/10.`);
+    goal.push(`Zwisy z zapasem (RPE 7–8), drogi tlenowe z pompowaniem maks. ${p.aerobic.targetMaxPump}/10.`);
   } else {
     why.push(`Trudne drogi i cruxy wokół Twojego poziomu (${p.hardRoutes.gradeFrom}–${p.hardRoutes.gradeTo}) – siła na trudnych przechwytach przy świeżych palcach.`);
     goal.push('Jakość ruchu w trudnych sekwencjach, pełne przerwy, koniec przed całkowitym zmęczeniem palców.');
@@ -62,7 +63,7 @@ export function explainSession(type: TrainingType, cycle: TrainingCycle, events:
   const level = type === 'A'
     ? [`trudne drogi ${p.hardRoutes.gradeFrom}–${p.hardRoutes.gradeTo}, maks. ${p.hardRoutes.maxAttempts} prób`]
     : tracks.map((t) => `${TRACK_NAMES[t]}: ${describeTrack(t, p)}`);
-  const nextStep = type === 'A' ? ['Trening A nie ma automatycznej progresji – trudność wyznaczają Twoje projekty i retest.'] : tracks.map((t) => nextStepText(t, p));
+  const nextStep = tracks.map((t) => nextStepText(t, p));
   const notIncreased = lastDecisions(events, cycle.id, type).filter((e) => e.kind !== 'progress').map((e) => e.reason);
 
   return { why, level, goal, nextStep, notIncreased };

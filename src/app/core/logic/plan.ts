@@ -132,16 +132,22 @@ export function stageLabel(cycle: TrainingCycle, week: number): string {
   return week < firstDeload ? 'Blok 1 – budowa bazy' : 'Blok 2 – rozwój';
 }
 
+/** Objętość w tygodniu deload: −40–50% (zaokrąglenie do najbliższej liczby całkowitej, nie mniej niż min) */
+export function deloadVolume(n: number, min = 1): number {
+  return Math.max(min, Math.min(n, Math.round(n * 0.55)));
+}
+
 /**
- * Deload: obniżamy objętość, nie intensywność względną.
- * Zmniejszona liczba serii zwisów, prób trudnych dróg, dróg tlenowych i serii obwodów.
+ * Deload: objętość −40–50%, bez prób maksymalnych, priorytetem jest regeneracja.
+ * Obciążenie (ciężar zwisów, trudność) bez zmian – zmniejszamy tylko liczbę serii, dróg i prób.
+ * Parametry cyklu nie są zmieniane: po deloadzie trening wraca do ostatniego dobrze tolerowanego poziomu.
  */
 export function deloadParams(p: TrainingParams): TrainingParams {
   const d = structuredClone(p);
-  d.hangboard.sets = Math.max(2, p.hangboard.sets - 1);
-  d.hardRoutes.maxAttempts = Math.max(2, Math.ceil(p.hardRoutes.maxAttempts / 2));
-  d.aerobic.routes = Math.max(3, p.aerobic.routes - 1);
-  d.powerEndurance.sets = Math.max(1, p.powerEndurance.sets - 1);
+  d.hangboard.sets = deloadVolume(p.hangboard.sets, 1);
+  d.hardRoutes.maxAttempts = deloadVolume(p.hardRoutes.maxAttempts, 2);
+  d.aerobic.routes = deloadVolume(p.aerobic.routes, 2);
+  d.powerEndurance.sets = deloadVolume(p.powerEndurance.sets, 1);
   return d;
 }
 

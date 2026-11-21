@@ -10,6 +10,10 @@
     <h1 class="display">{{ headline()[0] }}<br /><span class="soft">{{ headline()[1] }}</span></h1>
   </header>
 
+  @if (followUpDue(); as fu) {
+    <a class="row-link" routerLink="/load"><span>Jak się czujesz po treningu z {{ fu.date | datePl }}? Dopisz samopoczucie następnego dnia – to część decyzji o progresji.</span><app-icon name="arrow-right" /></a>
+  }
+
   @if (!c) {
     <!-- ============ BRAK CYKLU ============ -->
     @if (completedCycle(); as cc) {

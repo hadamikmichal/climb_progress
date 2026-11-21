@@ -3,7 +3,11 @@ import { Router, RouterLink } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 import { AppStore } from '../../core/data/store';
 import { AscentStyle, CompletedWorkout, GripPosition, HangboardLog, RouteLog } from '../../core/models/models';
-import { assessSession, formatLoad } from '../../core/logic/progression';
+import { formatLoad, ProgressionDecision } from '../../core/logic/progression';
+import { addDays } from '../../core/logic/dates';
+import { Scale } from '../../shared/scale';
+import { YesNo } from '../../shared/yes-no';
+import { assessSession } from '../../core/logic/overload';
 import { prescriptionLines } from '../../core/logic/describe';
 import { GRADES } from '../../core/logic/grades';
 import { now, uid } from '../../core/logic/ids';
@@ -15,7 +19,7 @@ import { MetricItem, MetricRow } from '../progress/metric-row';
 /** Szczegóły zapisanego treningu z możliwością edycji */
 @Component({
   selector: 'app-workout-detail',
-  imports: [RouterLink, FormsModule, DatePlPipe, Icon, MetricRow],
+  imports: [RouterLink, FormsModule, DatePlPipe, Icon, MetricRow, Scale, YesNo],
   template: `
     <div class="page">
       @if (w(); as w) {
@@ -40,6 +44,22 @@ import { MetricItem, MetricRow } from '../progress/metric-row';
             @if (w.notes) { <blockquote class="notes">„{{ w.notes }}”</blockquote> }
           </section>
 
+          @if (!w.deload) {
+            <section class="section">
+              <div class="section-head"><h3>Samopoczucie następnego dnia</h3><a class="eyebrow" routerLink="/load">Progresja obciążeń</a></div>
+              @if (w.followUp; as fu) {
+                <p class="mono">{{ fu.feeling }}/5 · {{ fu.fingerPain ? 'ból palców' : 'bez bólu palców' }} · {{ fu.date | datePl }}</p>
+              } @else {
+                <label class="field">Jak się czujesz dzień po treningu?</label>
+                <app-scale [min]="1" [max]="5" [value]="fuFeeling()" (valueChange)="fuFeeling.set($event)" low="rozbity" high="świetnie" />
+                <label class="field">Ból palców / ścięgien?</label>
+                <app-yes-no [value]="fuPain()" (valueChange)="fuPain.set($event)" [warnOnYes]="true" />
+                <button class="btn sm" type="button" [disabled]="busy() || fuFeeling() == null || fuPain() == null" (click)="saveFollowUp()">Zapisz</button>
+              }
+              @for (d of fuResult(); track d.track) { <div class="note" [class.warn]="d.action === 'reduce' || d.recovery"><p>{{ d.reason }}</p></div> }
+            </section>
+          }
+
           <section class="section two">
             <div>
               <h3>Plan sesji</h3>
@@ -60,15 +80,18 @@ import { MetricItem, MetricRow } from '../progress/metric-row';
               <div class="section-head"><h3>Max Hangs · Beastmaker 2000</h3></div>
               <div class="table-wrap">
                 <table class="table">
-                  <thead><tr><th>Krawądka</th><th>Chwyt</th><th class="num">Serie</th><th class="num">Obciążenie</th><th class="num">RPE</th></tr></thead>
+                  <thead><tr><th>Krawądka</th><th>Chwyt</th><th class="num">Serie</th><th class="num">Plan</th><th class="num">Obciążenie</th><th class="num">Czasy (s)</th><th class="num">RPE</th><th>Technika</th></tr></thead>
                   <tbody>
                     @for (h of w.hangs; track h.id) {
                       <tr>
                         <td>{{ h.edge }}@if (h.edgeSizeMm) { <span class="mono"> · {{ h.edgeSizeMm }} mm</span> }</td>
                         <td>{{ gripLabels[h.grip] }}</td>
                         <td class="num">{{ h.setsDone }}/{{ h.setsPlanned }} × {{ h.hangSec }} s</td>
+                        <td class="num">{{ fmtLoad(w.prescription.hangboard) }}</td>
                         <td class="num">{{ fmtLoad(h) }}</td>
+                        <td class="num">{{ h.holdTimes?.length ? h.holdTimes!.join(' / ') : '–' }}</td>
                         <td class="num">{{ h.rpe ?? '–' }}</td>
+                        <td>{{ h.techniqueOk == null ? '–' : h.techniqueOk ? 'prawidłowa' : 'nieprawidłowa' }}</td>
                       </tr>
                     }
                   </tbody>
@@ -235,6 +258,23 @@ export class WorkoutDetail {
   protected readonly w = computed(() => this.store.completed().find((x) => x.id === this.id()) ?? null);
   protected readonly presc = computed(() => (this.w() ? prescriptionLines(this.w()!.type, this.w()!.prescription) : []));
   protected readonly assessment = computed(() => assessSession(this.w()!));
+  protected readonly fuFeeling = signal<number | null>(null);
+  protected readonly fuPain = signal<boolean | null>(null);
+  protected readonly fuResult = signal<ProgressionDecision[]>([]);
+
+  protected async saveFollowUp() {
+    const w = this.w();
+    const feeling = this.fuFeeling();
+    const fingerPain = this.fuPain();
+    if (!w || feeling == null || fingerPain == null) return;
+    this.busy.set(true);
+    try {
+      this.fuResult.set(await this.store.setFollowUp(w.id, { date: addDays(w.date, 1), feeling, fingerPain, notes: '' }));
+    } finally {
+      this.busy.set(false);
+    }
+  }
+
   protected readonly quality = computed(() => ({ good: 'dobra sesja', ok: 'bez progresji', bad: 'sesja za ciężka' })[this.assessment().quality]);
   protected readonly metrics = computed<MetricItem[]>(() => {
     const w = this.w()!;

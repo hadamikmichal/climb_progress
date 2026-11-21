@@ -4,7 +4,8 @@ import {
 } from '../../models/models';
 import { strengthResults } from '../assessment/scoring';
 import { gradeIndex, shiftFont, shiftGrade, fontIndex, FONT_GRADES } from '../grades';
-import { formatLoad, sessionRpe } from '../progression';
+import { formatLoad, LIMITS, loadParts, sessionRpe } from '../progression';
+import { HANG_START, roundDownToStep } from '../overload/hangboard-progression.service';
 import { ABILITY_LABELS, ABILITY_PL, STATUS_LABELS, statusRank } from './abilities';
 import { configureProtocol, PE_PROTOCOLS } from './protocols';
 
@@ -130,8 +131,11 @@ export interface FingerPrescription {
   reasons: string[];
 }
 
-/** Docelowy zwis 10 s jako ułamek maksimum 5 s (obciążenie całkowite) */
-export const HANG_INTENSITY = { maintain: 0.8, develop: 0.85, painHistory: 0.75 } as const;
+/**
+ * Ciężar orientacyjny sesji kalibracyjnej (zwis 7 s) jako ułamek maksimum 5 s (obciążenie całkowite).
+ * Wynik testu to maksimum (RPE 10), nie ciężar treningowy – ciężar zatwierdza dopiero sesja kalibracyjna (cel RPE 7–8).
+ */
+export const HANG_INTENSITY = { start: 0.85, painHistory: 0.75 } as const;
 
 export function prescribeFinger(
   p: Record<AbilityKey, AbilityProfile>, assessment: Assessment | null, prev: HangboardParams, recentWorkouts: CompletedWorkout[],
@@ -147,30 +151,25 @@ export function prescribeFinger(
   const res = s ? strengthResults(s).finger : null;
   const pain = recentWorkouts.flatMap((w) => w.hangs).filter((h) => h.pain).length;
   if (res && res.totalLoadKg != null && res.bodyMassKg != null && protocol === 'max_hangs') {
-    const priority = main === 'finger';
-    let factor: number = priority ? HANG_INTENSITY.develop : HANG_INTENSITY.maintain;
-    if (pain) {
-      factor = HANG_INTENSITY.painHistory;
-      reasons.push(`Historia: ${pain} sesji zwisów z bólem – obniżona intensywność startowa (${Math.round(factor * 100)}%).`);
-    }
-    const target = res.totalLoadKg * factor;
-    const load = Math.round(target - res.bodyMassKg);
-    next.addedKg = Math.max(0, load);
-    next.assistKg = Math.max(0, -load);
-    next.hangSec = 10;
-    next.restSec = 180;
-    next.sets = priority ? 4 : 3;
+    const factor: number = pain ? HANG_INTENSITY.painHistory : HANG_INTENSITY.start;
+    if (pain) reasons.push(`Historia: ${pain} sesji zwisów z bólem – obniżony ciężar startowy (${Math.round(factor * 100)}% maksimum).`);
+    const load = roundDownToStep(res.totalLoadKg * factor - res.bodyMassKg);
+    Object.assign(next, loadParts(load));
+    next.hangSec = HANG_START.hangSec;
+    next.restSec = HANG_START.restSec;
+    next.sets = HANG_START.sets;
+    next.calibration = 'pending';
     if (s!.maxFingerStrength.edgeDepthMm != null) {
       next.edgeSizeMm = s!.maxFingerStrength.edgeDepthMm;
       next.edge = s!.maxFingerStrength.edgeLabel || next.edge;
     }
     next.grip = 'half_crimp';
+    const maxAdded = res.totalLoadKg - res.bodyMassKg;
     reasons.push(
-      `Zwis 10 s ≈ ${Math.round(factor * 100)}% Twojego maksimum 5 s (${Math.round(res.totalLoadKg * 10) / 10} kg całkowitego obciążenia) → ${formatLoad(next)}, cel RPE ok. 8/10.`,
-      priority
-        ? 'Siła palców to główne ograniczenie – 4 serie, intensywność rozwojowa.'
-        : `Siła palców: ${STATUS_LABELS[p.finger.status]}, nie jest priorytetem – 3 serie w dawce podtrzymującej, bez zwiększania objętości.`,
-      'Wysoki wynik nie oznacza automatycznie największego ciężaru: obciążenie wynika z Twojego maksimum, docelowego czasu zwisu i RPE.',
+      `Wynik Max Hang (${maxAdded >= 0 ? '+' : '−'}${Math.abs(Math.round(maxAdded * 100) / 100)} kg przy ${res.bodyMassKg} kg, 5 s, RPE 10) to maksimum, nie ciężar treningowy.`,
+      `Sesja kalibracyjna: ${HANG_START.sets} × ${HANG_START.hangSec} s, przerwa ${HANG_START.restSec} s, half crimp, ciężar orientacyjny ${formatLoad(next)} (≈ ${Math.round(factor * 100)}% maksimum), cel RPE ${HANG_START.rpe}. Ciężar zostanie zatwierdzony po pierwszej sesji – za trudno: mniej lub odciążenie, bardzo łatwo: ostrożnie więcej.`,
+      `Dalej +${String(LIMITS.hangLoadStepKg).replace('.', ',')} kg tylko po dwóch kolejnych udanych sesjach (wszystkie serie, pełny czas zwisu, RPE ≤ 8, prawidłowa technika, bez bólu).`,
+      main === 'finger' ? 'Siła palców to główne ograniczenie – priorytet progresji ciężaru.' : `Siła palców: ${STATUS_LABELS[p.finger.status]} – progresja ciężaru tylko przy pełnej tolerancji obciążenia.`,
     );
   } else if (protocol === 'max_hangs') {
     reasons.push('Brak ważnego pomiaru Max Hang 5 s – zwisy startują od dotychczasowych parametrów.');

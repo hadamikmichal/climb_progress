@@ -1,7 +1,12 @@
 import { CompletedWorkout, HangboardLog, PlannedWorkout, RouteLog, TrainingParams, TrainingType, WorkoutType } from '../../models/models';
 import { defaultProfile, initialParams } from '../templates';
 
-export const P0: TrainingParams = initialParams(defaultProfile('2026-01-01T00:00:00Z'));
+/** Parametry trwającego cyklu – ciężar zwisów już zatwierdzony (kalibracja testowana osobno) */
+export const P0: TrainingParams = (() => {
+  const p = initialParams(defaultProfile('2026-01-01T00:00:00Z'));
+  p.hangboard.calibration = 'confirmed';
+  return p;
+})();
 
 let n = 0;
 export function route(o: Partial<RouteLog> = {}): RouteLog {

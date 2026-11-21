@@ -1,0 +1,162 @@
+<div class="page wide">
+  <header class="page-head">
+    <div>
+      <div class="eyebrow">Training load progression</div>
+      <h1>Progresja obciążeń</h1>
+      <p class="muted">Obciążenie rośnie tylko wtedy, gdy wykonana praca, technika i regeneracja na to pozwalają – nigdy z samego upływu tygodni. Każda zmiana ma uzasadnienie.</p>
+    </div>
+  </header>
+
+  @if (!views().length) {
+    <p class="empty-line">Brak aktywnego planu. Progresja obciążeń pojawi się po teście początkowym i wygenerowaniu planu – <a routerLink="/">Dziś</a>.</p>
+  } @else {
+    <!-- ================= SAMOPOCZUCIE NASTĘPNEGO DNIA ================= -->
+    @if (followUpDue().length || followUpResult()) {
+      <section class="section" aria-labelledby="fu-h">
+        <div class="section-head"><h2 id="fu-h">Samopoczucie następnego dnia</h2></div>
+        <p class="muted small">Część oceny tolerancji obciążenia: ból palców lub złe samopoczucie po sesji, która dała progresję, cofa tę progresję.</p>
+        @for (w of followUpDue(); track w.id) {
+          @let f = form(w.id);
+          <div class="card flat fu">
+            <span class="eyebrow">{{ typeShort[w.type] }} · {{ w.date | datePl }}</span>
+            <label class="field">Jak się czujesz dzień po treningu?</label>
+            <app-scale [min]="1" [max]="5" [value]="f.feeling" (valueChange)="setForm(w.id, { feeling: $event })" low="rozbity" high="świetnie" />
+            <label class="field">Ból palców / ścięgien?</label>
+            <app-yes-no [value]="f.fingerPain" (valueChange)="setForm(w.id, { fingerPain: $event })" [warnOnYes]="true" />
+            <button class="btn sm" type="button" [disabled]="busy() || f.feeling == null || f.fingerPain == null" (click)="saveFollowUp(w)">Zapisz</button>
+          </div>
+        }
+        @if (followUpResult(); as res) {
+          @for (d of res; track d.track) {
+            <div class="note" [class.warn]="d.action === 'reduce' || d.recovery" [class.info]="d.action === 'hold' && !d.recovery"><p>{{ d.reason }}</p></div>
+          } @empty {
+            <div class="note ok"><p>Zapisano. Regeneracja bez zastrzeżeń – decyzje progresji bez zmian.</p></div>
+          }
+        }
+      </section>
+    }
+
+    <!-- ================= TORY PROGRESJI ================= -->
+    <div class="tracks">
+      @for (v of views(); track v.track) {
+        <article class="card track-card" [class.alert]="v.recovery" [attr.aria-labelledby]="'t-' + v.track">
+          <header class="spread">
+            <h2 class="mono track-title" [id]="'t-' + v.track">{{ v.title }}</h2>
+            @if (v.calibrating) { <span class="badge accent">kalibracja</span> }
+            @else if (v.recovery) { <span class="badge skipped">regeneracja</span> }
+          </header>
+
+          <div class="grid-3 stats">
+            <div class="stat">
+              <span class="label">Aktualnie</span>
+              <span class="value">{{ v.current }}</span>
+            </div>
+            <div class="stat">
+              <span class="label">Poprzednio</span>
+              <span class="value muted">{{ v.previous ?? '–' }}</span>
+            </div>
+            <div class="stat">
+              <span class="label">Następny cel</span>
+              <span class="value next">{{ v.next ?? '–' }}</span>
+            </div>
+          </div>
+          <p class="faint small">{{ v.currentDetail }}</p>
+
+          <div class="streak" [attr.aria-label]="'Udane sesje: ' + v.successful + ' z ' + v.required">
+            <span class="eyebrow">Udane sesje</span>
+            <span class="dots">@for (on of dots(v); track $index) { <span class="dot" [class.on]="on"></span> }</span>
+            <span class="mono">{{ v.successful }}/{{ v.required }}</span>
+          </div>
+
+          <div class="note" [class.warn]="v.recovery" [class.accent]="v.calibrating" [class.info]="!v.recovery && !v.calibrating">
+            <p><strong>Status:</strong> {{ v.status }}</p>
+            @if (v.nextDetail) { <p class="small muted">Po spełnieniu warunków: {{ v.nextDetail }}.</p> }
+            @if (v.suggestion) { <p class="small">Propozycja: {{ v.suggestion }}</p> }
+          </div>
+
+          @if (v.lastLines.length) {
+            <div>
+              <span class="eyebrow">Ostatnia sesja · {{ v.lastDate | datePl }}</span>
+              <dl class="kv">
+                @for (l of v.lastLines; track l.label) {
+                  <div [attr.data-tone]="l.tone ?? null"><dt>{{ l.label }}</dt><dd class="mono">{{ l.value }}</dd></div>
+                }
+              </dl>
+            </div>
+          }
+
+          @if (v.conditions.length) {
+            <div>
+              <span class="eyebrow">Warunki progresji (ostatnia sesja)</span>
+              <ul class="conds">
+                @for (c of v.conditions; track c.key) {
+                  <li [attr.data-met]="c.met === null ? 'na' : c.met">
+                    <span class="mark" aria-hidden="true">{{ c.met === true ? '✓' : c.met === false ? '✗' : '–' }}</span>
+                    <span>{{ c.label }}</span>
+                    @if (c.detail) { <span class="faint mono small">{{ c.detail }}</span> }
+                  </li>
+                }
+              </ul>
+            </div>
+          }
+
+          <details class="more">
+            <summary>Historia zmian obciążenia · {{ v.changes.length }}</summary>
+            @for (ch of v.changes; track ch.id) {
+              <div class="change">
+                <div class="spread">
+                  <span class="mono">{{ ch.from }} → {{ ch.to }}</span>
+                  <span class="badge plain" [class.done]="ch.kind === 'progress'" [class.skipped]="ch.kind === 'reduce'">{{ ch.kind === 'progress' ? 'progresja' : ch.kind === 'reduce' ? 'zmniejszenie' : 'ręcznie' }}</span>
+                </div>
+                <span class="faint small">{{ ch.timestamp.slice(0, 10) | datePl }} · {{ ch.parameter }}</span>
+                <p class="small">{{ ch.reason }}</p>
+              </div>
+            } @empty { <p class="faint small">Brak zmian – obciążenie startowe.</p> }
+          </details>
+
+          <details class="more">
+            <summary>Sesje · plan vs wykonanie · {{ v.sessions.length }}</summary>
+            <table class="sessions">
+              <thead><tr><th>Data</th><th>Plan</th><th>Wykonanie</th><th></th></tr></thead>
+              <tbody>
+                @for (s of v.sessions; track s.id) {
+                  <tr>
+                    <td class="mono"><a [routerLink]="['/history', s.id]">{{ s.date | datePl }}</a></td>
+                    <td class="mono">{{ s.planned }}@if (s.deload) { <small class="faint"> deload</small> }@if (s.calibration) { <small class="faint"> kalibracja</small> }</td>
+                    <td class="mono">{{ s.actual }}</td>
+                    <td><span class="mark" [attr.data-met]="s.deload ? 'na' : s.successful">{{ s.deload ? '–' : s.successful ? '✓' : '✗' }}</span></td>
+                  </tr>
+                } @empty { <tr><td colspan="4" class="faint">Brak sesji w tym cyklu.</td></tr> }
+              </tbody>
+            </table>
+          </details>
+        </article>
+      }
+    </div>
+
+    <!-- ================= RETEST MAX HANG ================= -->
+    @if (retest(); as r) {
+      <section class="section" aria-labelledby="rt-h">
+        <div class="section-head"><h2 id="rt-h">Retest Max Hang</h2></div>
+        @if (r.comparison; as cmp) {
+          <table class="sessions retest">
+            <thead><tr><th></th><th>Baseline</th><th>Retest</th><th>Zmiana</th></tr></thead>
+            <tbody>
+              @for (row of cmp.rows; track row.label) {
+                <tr><td>{{ row.label }}</td><td class="mono">{{ fmt(row.before, row.unit) }}</td><td class="mono">{{ fmt(row.after, row.unit) }}</td><td class="mono">{{ delta(row.delta, row.unit) }}</td></tr>
+              }
+            </tbody>
+          </table>
+          @for (i of cmp.conditionIssues; track i) { <div class="note warn"><p>{{ i }} Porównanie orientacyjne.</p></div> }
+        } @else {
+          <p class="muted">
+            Po zakończeniu 6. tygodnia: ponowny test Max Hang w identycznych warunkach
+            @if (r.baseline; as b) { ({{ b.edgeMm ? b.edgeMm + ' mm' : b.edgeLabel }}, half crimp, 5 s; baseline {{ delta(b.addedKg, 'kg') }} przy {{ fmt(b.bodyMassKg, 'kg') }}) }
+            @if (r.planned; as p) { – zaplanowany na {{ p.date | datePl }} (dzień siłowy testu końcowego) }.
+            Porównamy ciężar dodatkowy, całkowity, stosunek do masy ciała, czas utrzymania i RPE.
+          </p>
+        }
+      </section>
+    }
+  }
+</div>

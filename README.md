@@ -31,7 +31,10 @@ src/app/
   core/logic/               czysta logika treningowa (bez Angulara) + testy jednostkowe
     plan.ts                 cykl, plan 6 tygodni, deload, testy kontrolne
     scheduling.ts           przekładanie / pomijanie (Przypadek B), walidacja regeneracji
-    progression.ts          ocena sesji i progresja (Przypadki A, C)
+    progression.ts          wspólne narzędzia progresji (poziomy, opisy, zmiana jednego parametru)
+    overload/               Progressive Overload Engine: ProgressiveOverloadService (wspólny algorytm, status, widok)
+                            + HangboardProgressionService, AerobicProgressionService,
+                              PowerEnduranceProgressionService, HardRoutesProgressionService
     readiness.ts            ocena gotowości (Przypadek D)
     reports.ts, stats.ts    raporty tygodniowe, porównanie testów, dane do wykresów
   core/data/                IndexedDB (osobna baza na konto + kolejka synchronizacji), store na sygnałach, eksport/import JSON
@@ -48,11 +51,16 @@ Każda mutacja jest najpierw zapisywana w IndexedDB (razem z wpisem w kolejce sy
 
 ## Reguły adaptacji (deterministyczne, z wyjaśnieniem)
 
-- **Progresja:** dwie kolejne *dobre* sesje danego typu na tym samym poziomie → zmiana **jednego** parametru (A: serie zwisów do 5, potem +2 kg; B: liczba dróg do 5, potem trudność; C: 2×3 → 3×3, potem trudność). Nigdy nie startuje od 4×4.
+- **Progressive Overload:** progresja wynika z wykonanej pracy, techniki i regeneracji – nigdy z samego upływu tygodni. Dwie kolejne *udane* sesje na tym samym poziomie → zmiana **jednego** parametru. Każda decyzja (także „utrzymujemy”) trafia do historii z uzasadnieniem; wyniki sesji nie są nadpisywane. Widok **Progres → Progresja obciążeń** (`/load`): aktualne / poprzednie / następne obciążenie, udane sesje, warunki, historia zmian.
+- **Max Hangs:** wynik testu (5 s, RPE 10) to maksimum, nie ciężar treningowy. Start: sesja kalibracyjna 4 × 7 s, 180 s, half crimp, ≈ 85% maksimum w dół do 1,25 kg (70 kg + 21,25 kg → +7,5 kg), cel RPE 7–8; ciężar zatwierdzany po sesji (za trudno → mniej / odciążenie, bardzo łatwo → ostrożnie więcej). Potem +1,25 kg tylko po dwóch udanych sesjach: wszystkie serie, pełny czas każdego zwisu, RPE ≤ 8, prawidłowa technika, bez bólu (także następnego dnia), ciężar zgodny z planem. Ból → koniec ciężkich zwisów, brak progresji, regeneracja i ocena gotowości przed kolejnymi zwisami. Po deloadzie wznowienie od ostatniego dobrze tolerowanego ciężaru. Retest po 6. tygodniu porównuje ciężar dodatkowy, całkowity, % masy ciała, czas i RPE.
+- **Drogi tlenowe:** 4 × 5b, 3 min, pompowanie maks. 4/10 → najpierw 5, potem 6 dróg, dopiero potem trudność; nigdy oba naraz; przekroczone pompowanie = brak zwiększenia.
+- **Wytrzymałość siłowa:** 2 × 3 na 5c+ (2 / 12 min); ścieżka indywidualna – sesje wyraźnie lekkie przy bardzo dobrej technice → trudność (2 × 3 na 6a), kontrolowane zmęczenie → objętość (3 × 3 na 5c+), dalej trudność i przerwy. 4 × 4 / zaawansowane obwody tylko jako propozycja przy górnej granicy, nie obowiązkowy etap.
+- **Trudne drogi:** każda próba zapisana i oceniona (czyste przejście / z rozpadem techniki / crux / bez cruxa), poprawa sekwencji per projekt; zakres trudności rośnie po czystych przejściach na górnej granicy w dwóch kolejnych sesjach; liczba prób nigdy nie rośnie automatycznie.
+- **Samopoczucie następnego dnia:** ból palców lub samopoczucie ≤ 2/5 po sesji, która dała progresję, cofa tę progresję.
 - **Brak progresji:** sesja częściowa, RPE powyżej progu, mocne pompowanie, odpadnięcie w obwodzie, słaba technika lub samopoczucie po treningu.
-- **Zmniejszenie:** ból podczas zwisów albo nieukończenie przy RPE/pompowaniu ≥ 9; dwie częściowe sesje z rzędu.
+- **Zmniejszenie:** nieukończenie przy RPE/pompowaniu ≥ 9 z analizą przyczyny (rozpad techniki → trudność / serie, zmęczenie → objętość); dwie nieudane sesje z rzędu → powrót o krok; dwie pominięte jednostki z rzędu → powrót z mniejszym obciążeniem.
 - **Pominięcie** przerywa serię dobrych sesji – poziom zostaje, zaległości nie są nadrabiane.
-- **Deload** (tydzień 4) i **lżejsze wersje** (przy obniżonej gotowości) nie wpływają na progresję.
+- **Deload** (tydzień 4: objętość −40–50%, bez prób maksymalnych) i **lżejsze wersje** (przy obniżonej gotowości) nie wpływają na progresję.
 - **Przełożenie** (brak czasu): szukany jest termin w tym samym tygodniu bez dwóch ciężkich jednostek dzień po dniu i maks. 3 dni treningowe z rzędu; brak bezpiecznego terminu → pominięcie. Zmiana daty nigdy nie zwiększa obciążenia.
 - **Gotowość:** ból palców / łokci / barków, nietypowe zmęczenie → zalecany odpoczynek, chwytotablica zablokowana. Aplikacja nie diagnozuje.
 

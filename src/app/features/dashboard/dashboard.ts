@@ -42,6 +42,11 @@ const HEADLINES: Record<string, [string, string]> = {
 })
 export class Dashboard {
   protected readonly store = inject(AppStore);
+  /** Wczorajsza sesja (poza deloadem) bez samopoczucia następnego dnia */
+  protected readonly followUpDue = computed(() => {
+    const y = addDays(this.store.today(), -1);
+    return this.store.completedSorted().find((w) => w.date === y && !w.deload && !w.followUp) ?? null;
+  });
   protected readonly templates = TEMPLATES;
   protected readonly statusLabels = STATUS_LABELS;
   protected readonly shortName = plannedShortName;

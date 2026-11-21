@@ -91,17 +91,28 @@
         <!-- ---------- MAX HANGS ---------- -->
         @if (ex.kind === 'hangboard' && d.hang; as h) {
           @if (h.blocked) {
-            <div class="note warn">Zwisy wyłączone na dziś (ból lub obniżona gotowość). Nie nadrabiamy ich – przejdź dalej.</div>
-            @if (!assessment() || assessment()!.allowHangboard) {
+            @if (painLock()) {
+              <div class="note warn">Ostatnia sesja zwisów zakończyła się bólem palców. Ciężkie zwisy dopiero po regeneracji i ocenie gotowości bez bólu – <a routerLink="/readiness">oceń gotowość</a>. Nie nadrabiamy ich – przejdź dalej.</div>
+            } @else {
+              <div class="note warn">Zwisy wyłączone na dziś (ból lub obniżona gotowość). Nie nadrabiamy ich – przejdź dalej.</div>
+            }
+            @if (!painLock() && (!assessment() || assessment()!.allowHangboard)) {
               <button class="btn ghost" type="button" (click)="hangField('blocked', false)">Jednak wykonuję zwisy</button>
             }
           } @else {
+            @if (d.params.hangboard.calibration === 'pending' && !d.deload && !d.light) {
+              <div class="note">
+                <strong>Sesja kalibracyjna.</strong> Ciężar orientacyjny {{ formatLoad(d.params.hangboard) }}, cel RPE 7–8. Wynik testu to maksimum, nie ciężar treningowy.
+                Za trudno (RPE 9+, puszczasz przed czasem) → zmniejsz ciężar lub dodaj odciążenie w „Parametrach zwisu”. Bardzo łatwo (RPE ≤ 6) → ostrożnie zwiększ o 1,25–2,5 kg. Ciężar zostanie zatwierdzony po tej sesji.
+              </div>
+            }
             <div class="counter">
               <span class="eyebrow">Seria</span>
               <span class="mono big-count">{{ Math.min(h.setsPlanned, h.setsDone + 1).toString().padStart(2, '0') }}<span class="of"> / {{ h.setsPlanned.toString().padStart(2, '0') }}</span></span>
             </div>
             <div class="spec">
               <span class="mono spec-main">{{ formatLoad(h) }}</span>
+              @if (h.addedKg - h.assistKg !== d.params.hangboard.addedKg - d.params.hangboard.assistKg) { <span class="mono spec-sub">plan: {{ formatLoad(d.params.hangboard) }}</span> }
               <span class="mono spec-sub">{{ h.hangSec }} s · {{ gripLabels[h.grip] }} · {{ h.edgeSizeMm ? h.edgeSizeMm + ' mm' : h.edge }}</span>
             </div>
 
@@ -118,17 +129,31 @@
               }
             </div>
 
+            @if (h.setsDone > 0) {
+              <div class="form-block">
+                <label class="field">Czas każdego zwisu (s) – popraw, jeśli puściłeś przed czasem</label>
+                <div class="hold-times" [style.grid-template-columns]="'repeat(' + h.setsPlanned + ', minmax(0, 1fr))'">
+                  @for (t of h.holdTimes ?? []; track $index) {
+                    <input class="mono" type="number" inputmode="decimal" min="0" [max]="h.hangSec" step="0.5" [ngModel]="t" (ngModelChange)="setHoldTime($index, +$event)" [attr.aria-label]="'Czas zwisu ' + ($index + 1)" />
+                  }
+                </div>
+              </div>
+            }
             @if (h.setsDone >= h.setsPlanned || h.pain) {
               <div class="form-block enter">
-                <label class="field">RPE zwisów (cel ok. 8)</label>
+                <label class="field">RPE zwisów (cel 7–8)</label>
                 <app-scale [min]="1" [max]="10" [hotFrom]="9" [value]="h.rpe" (valueChange)="hangField('rpe', $event)" low="lekko" high="maksimum" />
+              </div>
+              <div class="form-block">
+                <label class="field">Technika prawidłowa we wszystkich seriach? (pozycja half crimp, aktywne barki, bez „rozjeżdżania się” palców)</label>
+                <app-yes-no [value]="h.techniqueOk ?? null" (valueChange)="hangField('techniqueOk', $event)" />
               </div>
             }
             <div class="form-block">
               <label class="field">Ból lub dyskomfort palców / stawów?</label>
               <app-yes-no [value]="h.pain" (valueChange)="hangField('pain', $event)" [warnOnYes]="true" />
               @if (h.pain) {
-                <div class="note warn">Przerwij zwisy. Nie kontynuuj chwytotablicy przy bólu – kolejne zwisy zostaną odciążone.
+                <div class="note warn">Przerwij zwisy. Nie kontynuuj chwytotablicy przy bólu – brak progresji, kolejne ciężkie zwisy dopiero po regeneracji i ocenie gotowości.
                   @if (h.setsDone < h.setsPlanned) { <button class="btn sm danger" type="button" (click)="stopHangs()">Zakończ na {{ h.setsDone }} seriach</button> }
                 </div>
               }
@@ -252,6 +277,7 @@
                 <button class="icon-btn" type="button" (click)="shiftNewGrade(1)" aria-label="Trudniejsza wycena"><app-icon name="plus" /></button>
               </div>
               <span class="mono spec-sub">zakres {{ d.params.hardRoutes.gradeFrom }}–{{ d.params.hardRoutes.gradeTo }} · pełne przerwy</span>
+              <label class="field">Projekt / droga (opcjonalnie)<input [(ngModel)]="newProject" placeholder="np. Rysa – pozwala śledzić poprawę sekwencji" /></label>
             </div>
           }
           @if (lastAttempt(); as la) {
@@ -264,6 +290,7 @@
               }
               <div class="chips">
                 <button type="button" class="chip" [class.on]="la.cruxSent" (click)="routeField(la.id, 'cruxSent', !la.cruxSent)">Crux przechwycony</button>
+                <button type="button" class="chip" [class.on]="la.techniqueDegraded" (click)="routeField(la.id, 'techniqueDegraded', !la.techniqueDegraded)">Rozpad techniki</button>
               </div>
             </div>
           }
@@ -396,10 +423,14 @@
         @if (r.assessment.issues.length) { <p class="lead">Uwagi: {{ r.assessment.issues.join(', ') }}.</p> }
         <span class="eyebrow">Co dalej z planem</span>
         @for (dec of r.decisions; track dec.track) {
-          <div class="note" [class.ok]="dec.action === 'progress'" [class.warn]="dec.action === 'reduce'" [class.info]="dec.action === 'hold'"><p>{{ dec.reason }}</p></div>
+          <div class="note" [class.ok]="dec.action === 'progress'" [class.warn]="dec.action === 'reduce' || dec.recovery" [class.info]="dec.action === 'hold' && !dec.recovery">
+            <p>{{ dec.reason }}</p>
+            @if (dec.suggestion) { <p class="small">Propozycja: {{ dec.suggestion }}</p> }
+          </div>
         } @empty {
-          <div class="note info"><p>{{ r.workout.deload ? 'Sesja w wersji obniżonej – nie wpływa na progresję.' : 'Trening A (trudne drogi) nie ma automatycznej progresji – zakres zmieniasz w Profilu.' }}</p></div>
+          <div class="note info"><p>Sesja w wersji obniżonej – nie wpływa na progresję. Po deloadzie wracamy do ostatniego dobrze tolerowanego obciążenia.</p></div>
         }
+        <p class="faint small">Jutro dopisz samopoczucie następnego dnia (karta treningu lub <a routerLink="/load">Progresja obciążeń</a>) – to część oceny tolerancji obciążenia.</p>
         @if (r.decisions.some(isProgress)) { <p class="faint small">W każdej części treningu zmieniany jest najwyżej jeden parametr.</p> }
       </section>
       <footer class="dock">

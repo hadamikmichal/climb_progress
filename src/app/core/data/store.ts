@@ -1,6 +1,6 @@
 import { computed, Injectable, signal, WritableSignal } from '@angular/core';
 import {
-  AdaptationEvent, AppData, CompletedWorkout, ISODate, PlannedWorkout, ReadinessCheck, SessionDraft, SkipReason,
+  AdaptationEvent, AppData, CompletedWorkout, FollowUp, ISODate, PlannedWorkout, ReadinessCheck, SessionDraft, SkipReason,
   TestResult, TrainingCycle, TrainingParams, TrainingType, UserProfile, WeeklyReport,
 } from '../models/models';
 import { Assessment, AssessmentKind, AssessmentPart } from '../models/assessment';
@@ -16,7 +16,8 @@ import {
   assessmentStatus, BASELINE_ROUTE_ATTEMPTS, CONTROL_ROUTE_ATTEMPTS, newAssessment, newClimbingSession, newStrengthSession,
 } from '../logic/assessment/factory';
 import { KIND_LABELS, PART_LABELS } from '../logic/assessment/labels';
-import { evaluateProgression, HistoryEntry, ProgressionDecision, Track, TRACK_HOST, TRACKS } from '../logic/progression';
+import { HistoryEntry, ProgressionDecision, Track, TRACK_HOST, TRACKS } from '../logic/progression';
+import { eventTrack, progressiveOverload } from '../logic/overload';
 import { decideMissed, isPending, MissedDecision, slotViolations } from '../logic/scheduling';
 import { evaluateReadiness, readinessFor, recoveryFromReadiness } from '../logic/readiness';
 import {
@@ -338,10 +339,10 @@ export class AppStore {
     let params = c.params;
     const evs: AdaptationEvent[] = [];
     for (const track of TRACKS[p.type as TrainingType]) {
-      const d = evaluateProgression(track, this.historyFor(c.id, track), params);
+      const d = progressiveOverload.evaluate(track, this.historyFor(c.id, track), params);
       if (d.action !== 'reduce') continue;
       params = d.params;
-      evs.push(this.event({ cycleId: c.id, kind: 'reduce', workoutType: p.type, parameter: d.parameter, from: d.from, to: d.to, reason: d.reason, sourceIds: d.sourceIds }));
+      evs.push(this.decisionEvent(c.id, d));
     }
     if (!evs.length) return;
     const nc = { ...c, params, updatedAt: now() };
@@ -451,39 +452,86 @@ export class AppStore {
     const c = this.cycles().find((x) => x.id === w.cycleId);
     if (!c) return [];
     if (w.deload) {
-      await this.addEvents([this.event({
+      const evs = [this.event({
         cycleId: c.id, kind: 'deload', workoutType: w.type,
         reason: `${TYPE_SHORT[w.type]} wykonany w wersji obniżonej (deload / lżejsza wersja) – nie wpływa na progresję. Poziom bez zmian.`, sourceIds: [w.id],
-      })]);
+      })];
+      // Po deloadzie wznowienie od ostatniego dobrze tolerowanego obciążenia (nie automatyczne +kg)
+      let params = c.params;
+      for (const track of TRACKS[w.type]) {
+        const d = progressiveOverload.afterDeload(track, this.historyFor(c.id, track), params);
+        if (!d) continue;
+        params = d.params;
+        evs.push(this.decisionEvent(c.id, d));
+      }
+      await this.saveDecisions(c, params, evs);
       return [];
     }
     // Każdy tor oceniany niezależnie; zmiany parametrów różnych torów nie kolidują ze sobą
-    const decisions: ProgressionDecision[] = [];
-    let params = c.params;
-    for (const track of TRACKS[w.type]) {
-      const recovery = recoveryFromReadiness(readinessFor(this.readiness(), w.date));
-      const d = evaluateProgression(track, this.historyFor(c.id, track), params, { recovery });
-      params = d.params;
-      decisions.push(d);
-    }
+    const recovery = recoveryFromReadiness(readinessFor(this.readiness(), w.date));
+    const decisions = progressiveOverload.evaluateWorkout(w, (t) => this.historyFor(c.id, t), c.params, { recovery });
     if (!decisions.length) {
       await this.ensureWeeklyReports();
       return [];
     }
-    const evs = decisions.map((d) => this.event({
-      cycleId: c.id, kind: d.action, workoutType: w.type, parameter: d.parameter, from: d.from, to: d.to, reason: d.reason, sourceIds: d.sourceIds,
-    }));
+    const params = decisions[decisions.length - 1].params;
+    const evs = decisions.map((d) => this.decisionEvent(c.id, d));
+    await this.saveDecisions(c, params, evs);
+    await this.ensureWeeklyReports();
+    return decisions;
+  }
+
+  /** Zdarzenie historii zmian dla decyzji progresji – zawsze z torem i uzasadnieniem */
+  private decisionEvent(cycleId: string, d: ProgressionDecision): AdaptationEvent {
+    return this.event({
+      cycleId, kind: d.action, workoutType: d.type, track: d.track, parameter: d.parameter, from: d.from, to: d.to, reason: d.reason, sourceIds: d.sourceIds,
+    });
+  }
+
+  /** Zapis zdarzeń i – jeśli parametry się zmieniły – nowych parametrów cyklu (poprzednie wyniki sesji pozostają bez zmian) */
+  private async saveDecisions(c: TrainingCycle, params: TrainingParams, evs: AdaptationEvent[]): Promise<void> {
     const ops2: { store: StoreName; put?: unknown[] }[] = [{ store: 'events', put: evs }];
     let nextCycle: TrainingCycle | null = null;
-    if (decisions.some((d) => d.action !== 'hold')) {
-      nextCycle = { ...c, params, updatedAt: ts };
+    if (JSON.stringify(params) !== JSON.stringify(c.params)) {
+      nextCycle = { ...c, params, updatedAt: now() };
       ops2.push({ store: 'cycles', put: [nextCycle] });
     }
     await this.persist(ops2);
     this.upsert(this.events, evs);
     if (nextCycle) this.upsert(this.cycles, [nextCycle]);
-    await this.ensureWeeklyReports();
+  }
+
+  /**
+   * Samopoczucie następnego dnia – dopisywane do sesji (wyniki sesji nie są nadpisywane).
+   * Negatywne po sesji, która spowodowała progresję → cofnięcie tej progresji z uzasadnieniem.
+   */
+  async setFollowUp(workoutId: string, f: Omit<FollowUp, 'at'>): Promise<ProgressionDecision[]> {
+    const w0 = this.completed().find((x) => x.id === workoutId);
+    if (!w0) return [];
+    const ts = now();
+    const w: CompletedWorkout = { ...w0, followUp: { ...f, at: ts }, updatedAt: ts };
+    await this.persist([{ store: 'completed', put: [w] }]);
+    this.upsert(this.completed, [w]);
+    const c = this.cycles().find((x) => x.id === w.cycleId);
+    if (!c || w.deload) return [];
+    const decisions: ProgressionDecision[] = [];
+    let params = c.params;
+    for (const track of TRACKS[w.type]) {
+      const lastProgress = this.eventsSorted().find((e) => e.cycleId === c.id && e.kind === 'progress' && eventTrack(e) === track);
+      const caused = !!lastProgress && lastProgress.sourceIds.includes(w.id);
+      const d = progressiveOverload.onFollowUp(track, w, params, caused);
+      if (!d) continue;
+      params = d.params;
+      decisions.push(d);
+    }
+    if (decisions.length) await this.saveDecisions(c, params, decisions.map((d) => this.decisionEvent(c.id, d)));
     return decisions;
+  }
+
+  /** Po bólu palców kolejne ciężkie zwisy wymagają oceny gotowości bez bólu */
+  hangNeedsReadiness(): boolean {
+    const c = this.cycle();
+    return !!c && progressiveOverload.hangboard.requiresReadiness(this.historyFor(c.id, 'hang'), this.readiness());
   }
 
   /** Edycja historii – nie zmienia wstecz decyzji adaptacji (są zapisane jako zdarzenia) */

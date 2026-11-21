@@ -22,6 +22,7 @@ export const routes: Routes = [
       { path: 'history', title: 'Historia – ClimbProgress', loadComponent: () => import('./features/history/history').then((m) => m.HistoryPage) },
       { path: 'history/:id', title: 'Trening – ClimbProgress', loadComponent: () => import('./features/history/workout-detail').then((m) => m.WorkoutDetail) },
       { path: 'tests/:id', title: 'Test – ClimbProgress', loadComponent: () => import('./features/test/test-report').then((m) => m.TestReportPage) },
+      { path: 'load', title: 'Progresja obciążeń – ClimbProgress', loadComponent: () => import('./features/load/load-progression').then((m) => m.LoadProgressionPage) },
       { path: 'progress', title: 'Progres – ClimbProgress', loadComponent: () => import('./features/progress/progress').then((m) => m.ProgressPage) },
       { path: 'profile', title: 'Profil – ClimbProgress', loadComponent: () => import('./features/profile/profile').then((m) => m.ProfilePage) },
       { path: 'readiness', title: 'Gotowość – ClimbProgress', loadComponent: () => import('./features/readiness/readiness').then((m) => m.ReadinessPage) },

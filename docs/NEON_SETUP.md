@@ -76,7 +76,10 @@ Migracje uruchamiamy lokalnie albo w CI – **nigdy z przeglądarki**.
 3. Zastosuj migracje: `npm run db:migrate` (`drizzle/0000_init.sql` – tabele, indeksy, ograniczenia, RLS i polityki;
    `drizzle/0001_grants.sql` – uprawnienia `authenticated`, brak dostępu dla `anonymous`;
    `0002` – bez efektu na Neon, zostaje w historii; `0003` – `app.current_user_id()`;
-   `0004` – polityki i domyślne `user_id` przez `app.current_user_id()`).
+   `0004` – polityki i domyślne `user_id` przez `app.current_user_id()`;
+   `0005` – Progressive Overload: `hangboard_logs.hold_times_seconds`, `hangboard_logs.technique_ok`,
+   `workout_sessions.follow_up`, `adaptation_events.track`).
+   **Migrację `0005` uruchom przed wdrożeniem frontendu z silnikiem progresji** – Data API odrzuca zapisy z nieznanymi kolumnami.
 4. Ponownie `npm run db:check` – wszystko powinno być ✔.
 5. Testy izolacji: `npm run test:rls`
    - część SQL (zawsze przy `DATABASE_URL`): wszystko w jednej transakcji z `ROLLBACK`, nic nie zostaje w bazie;
